@@ -15,9 +15,8 @@ const Player = ({ videoId }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [songTitle, setSongTitle] = useState("Loading...");
   const [thumbnail, setThumbnail] = useState("");
-  const { songList, currentIndex, setCurrentIndex, setCurrentVideoId } = usePlayer();
+  const { songList, currentIndex, currentSong, setCurrentIndex, setCurrentVideoId, setCurrentSong } = usePlayer();
   const safeVideoId = videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
-
 
   useEffect(() => {
     if (!safeVideoId) {
@@ -26,27 +25,28 @@ const Player = ({ videoId }) => {
       return;
     }
 
-    const currentSong = songList?.[currentIndex];
-    const currentSongTitle = currentSong?.title || currentSong?.name;
-    const currentArtist = currentSong?.artist || currentSong?.singer;
+    const selectedSong = currentSong || songList?.[currentIndex] || null;
+    const currentSongTitle = selectedSong?.title || selectedSong?.name;
+    const currentArtist = selectedSong?.artist || selectedSong?.singer;
 
     if (currentSongTitle) {
       setSongTitle(currentArtist ? `${currentSongTitle} - ${currentArtist}` : currentSongTitle);
-      const thumb = currentSong?.thumbnail_url || currentSong?.image || `https://img.youtube.com/vi/${safeVideoId}/mqdefault.jpg`;
+      const thumb = selectedSong?.thumbnail_url || selectedSong?.image || `https://img.youtube.com/vi/${safeVideoId}/mqdefault.jpg`;
       setThumbnail(thumb);
-    } else {
-      setThumbnail(`https://img.youtube.com/vi/${safeVideoId}/mqdefault.jpg`);
-      setSongTitle("Playing Song");
-
-      axios
-        .get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${safeVideoId}&format=json`)
-        .then((res) => {
-          if (res.data?.title) setSongTitle(res.data.title);
-          if (res.data?.thumbnail_url) setThumbnail(res.data.thumbnail_url);
-        })
-        .catch(() => {});
+      return;
     }
-  }, [safeVideoId, songList, currentIndex]);
+
+    setThumbnail(`https://img.youtube.com/vi/${safeVideoId}/mqdefault.jpg`);
+    setSongTitle("Playing Song");
+
+    axios
+      .get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${safeVideoId}&format=json`)
+      .then((res) => {
+        if (res.data?.title) setSongTitle(res.data.title);
+        if (res.data?.thumbnail_url) setThumbnail(res.data.thumbnail_url);
+      })
+      .catch(() => {});
+  }, [safeVideoId, songList, currentIndex, currentSong]);
 
   const opts = { width: "0", height: "0", playerVars: { autoplay: 1 } };
 
@@ -67,6 +67,7 @@ const Player = ({ videoId }) => {
 
     if (!nextId) return;
 
+    setCurrentSong(nextSong);
     setCurrentIndex(safeIndex);
     setCurrentVideoId(nextId);
     setIsPlaying(true);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
+import { useAuth } from "../context/AuthContext";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -26,7 +27,8 @@ const ArtistPage = () => {
   const { artistName } = useParams();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { setCurrentVideoId, setCurrentIndex, setSongList } = usePlayer();
+  const { isAuthenticated } = useAuth();
+  const { setCurrentVideoId, setCurrentIndex, setSongList, setCurrentSong, setShowLoginModal } = usePlayer();
 
   useEffect(() => {
     const fetchArtist = async () => {
@@ -53,6 +55,11 @@ const ArtistPage = () => {
   const songs = useMemo(() => artist?.songs || [], [artist]);
 
   const handleSongClick = async (song, index) => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+
     let videoId = getVideoId(song?.youtube_url || song?.videoUrl || "");
 
     if (!videoId && song?.title && song?.artist) {
@@ -73,6 +80,7 @@ const ArtistPage = () => {
     if (!videoId) return;
 
     setSongList(songs);
+    setCurrentSong(song);
     setCurrentIndex(index);
     setCurrentVideoId(videoId);
   };

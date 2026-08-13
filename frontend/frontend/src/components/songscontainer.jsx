@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
+import { useAuth } from "../context/AuthContext";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -19,7 +20,8 @@ const SongsContainer = () => {
   const [artists, setArtists] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const { setCurrentVideoId, searchQuery, songList, setSongList, setCurrentIndex } = usePlayer();
+  const { isAuthenticated } = useAuth();
+  const { setCurrentVideoId, setCurrentSong, setShowLoginModal, searchQuery, songList, setSongList, setCurrentIndex } = usePlayer();
 
   useEffect(() => {
     if (songList && songList.length > 0) {
@@ -69,6 +71,11 @@ const getThumbnailUrl = (youtubeUrl) => {
 };
 
   const handleSongClick = async (song, index) => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+
     const existingUrl = song?.youtube_url || song?.videoUrl || "";
     let videoId = getVideoId(existingUrl);
     let resolvedData = null;
@@ -91,6 +98,15 @@ const getThumbnailUrl = (youtubeUrl) => {
 
     if (!videoId) return;
 
+    const activeSong = {
+      ...(song?._doc || song || {}),
+      ...(resolvedData || {}),
+      title: resolvedData?.title || song?.title || song?._doc?.title || "Unknown Song",
+      artist: resolvedData?.artist || song?.artist || song?._doc?.artist || "Unknown Artist",
+      youtube_url: resolvedData?.youtube_url || song?.youtube_url || song?.videoUrl || existingUrl,
+      thumbnail_url: resolvedData?.thumbnail_url || song?.thumbnail_url || song?._doc?.thumbnail_url || getThumbnailUrl(existingUrl || resolvedData?.youtube_url || ""),
+    };
+
     if (resolvedData) {
       const updateSongItem = (item) => {
         if (
@@ -110,6 +126,7 @@ const getThumbnailUrl = (youtubeUrl) => {
       setSongList((prev) => (Array.isArray(prev) ? prev.map(updateSongItem) : prev));
     }
 
+    setCurrentSong(activeSong);
     setCurrentVideoId(videoId);
     setCurrentIndex(index);
   };

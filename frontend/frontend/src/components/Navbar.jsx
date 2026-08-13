@@ -8,8 +8,8 @@ import { useAuth } from "../context/AuthContext";
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 function Navbar() {
-  const { searchQuery, setSearchQuery, songList, setCurrentVideoId, setCurrentIndex } = usePlayer();
-  const { user, logout } = useAuth();
+  const { searchQuery, setSearchQuery, songList, setCurrentVideoId, setCurrentIndex, setCurrentSong, setShowLoginModal } = usePlayer();
+  const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -94,6 +94,11 @@ function Navbar() {
       : null;
 
   const handleSelectSong = async (song, index) => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+
     const normalizedSong = normalizeSong(song);
     const youtubeUrl = normalizedSong.youtube_url;
     let videoId = getVideoIdFromUrl(youtubeUrl);
@@ -119,6 +124,11 @@ function Navbar() {
         (current.title === normalizedSong.title && current.artist === normalizedSong.artist);
     });
 
+    setCurrentSong({
+      ...normalizedSong,
+      youtube_url: youtubeUrl,
+      thumbnail_url: normalizedSong.thumbnail_url,
+    });
     setCurrentVideoId(videoId);
     setCurrentIndex(actualIndex >= 0 ? actualIndex : index);
     setSearchQuery("");
