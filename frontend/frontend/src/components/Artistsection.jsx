@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const ArtistContainer = () => {
   const [artists, setArtists] = useState([]);
   const [selectedArtist, setSelectedArtist] = useState(null);
@@ -9,7 +11,7 @@ const ArtistContainer = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/artists")
+      .get(`${API}/api/artists`)
       .then((res) => {
         // Adjust this if your backend returns { artists: [...] }
         setArtists(res.data.artists || res.data);

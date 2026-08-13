@@ -5,6 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { usePlayer } from "./playerContext";
 import { useAuth } from "../context/AuthContext";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 function Navbar() {
   const { searchQuery, setSearchQuery, songList, setCurrentVideoId, setCurrentIndex } = usePlayer();
   const { user, logout } = useAuth();
@@ -99,7 +101,7 @@ function Navbar() {
     if (!videoId && normalizedSong.title && normalizedSong.artist) {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/resolve-song?title=${encodeURIComponent(normalizedSong.title)}&artist=${encodeURIComponent(normalizedSong.artist)}`
+          `${API}/api/resolve-song?title=${encodeURIComponent(normalizedSong.title)}&artist=${encodeURIComponent(normalizedSong.artist)}`
         );
         const data = await res.json();
         videoId = getVideoIdFromUrl(data?.youtube_url || data?.videoId || "");
@@ -132,7 +134,7 @@ function Navbar() {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/search-youtube?query=${encodeURIComponent(query)}`
+        `${API}/api/search-youtube?query=${encodeURIComponent(query)}`
       );
       const data = await res.json();
       const videoId = getVideoIdFromUrl(data?.youtube_url || data?.videoId || "");

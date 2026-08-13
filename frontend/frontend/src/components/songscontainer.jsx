@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const getVideoId = (url) => {
   if (!url) return null;
 
@@ -27,7 +29,7 @@ const SongsContainer = () => {
     }
 
     axios
-      .get("http://localhost:5000/api/songs")
+      .get(`${API}/api/songs`)
       .then((res) => {
         setSongs(res.data);
         setSongList(res.data);
@@ -42,7 +44,7 @@ const SongsContainer = () => {
   // Fetch Artists
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/artists")
+      .get(`${API}/api/artists`)
       .then((res) => setArtists(res.data))
       .catch((err) => console.error("Error fetching artists:", err));
   }, []);
@@ -73,7 +75,7 @@ const getThumbnailUrl = (youtubeUrl) => {
 
     if (!videoId && song?.title && song?.artist) {
       try {
-        const res = await axios.get("http://localhost:5000/api/resolve-song", {
+        const res = await axios.get(`${API}/api/resolve-song`, {
           params: {
             title: song.title,
             artist: song.artist,

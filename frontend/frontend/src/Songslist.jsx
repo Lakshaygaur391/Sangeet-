@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const SongsList = () => {
   const [songs, setSongs] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
 
   useEffect(() => {
     // Replace with your backend URL
-    axios.get("http://localhost:5000/api/songs")
+    axios.get(`${API}/api/songs`)
       .then(res => setSongs(res.data))
       .catch(err => console.error(err));
   }, []);

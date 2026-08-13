@@ -2,6 +2,9 @@ import React from 'react'
 import { useState } from "react";
 import axios from "axios";
 import YouTube from "react-youtube";
+
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const Predefinedcode = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -9,7 +12,7 @@ const Predefinedcode = () => {
   
 
   const searchSongs = async () => {
-    const res = await axios.get(`http://localhost:5000/api/search?q=${query}`);
+    const res = await axios.get(`${API}/api/search?q=${query}`);
     setResults(res.data);
   };
   return (

@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
 
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const getVideoId = (url) => {
   if (!url) return null;
   if (/^[A-Za-z0-9_-]{11}$/.test(url)) return url;
@@ -29,7 +31,7 @@ const ArtistPage = () => {
   useEffect(() => {
     const fetchArtist = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/artists");
+        const res = await axios.get(`${API}/api/artists`);
         const normalizedName = decodeURIComponent(artistName || "").trim();
         const match = (res.data || []).find((item) => {
           const name = String(item?.name || "").trim();
@@ -55,7 +57,7 @@ const ArtistPage = () => {
 
     if (!videoId && song?.title && song?.artist) {
       try {
-        const res = await axios.get("http://localhost:5000/api/resolve-song", {
+        const res = await axios.get(`${API}/api/resolve-song`, {
           params: {
             title: song.title,
             artist: song.artist,
