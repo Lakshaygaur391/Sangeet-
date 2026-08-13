@@ -160,7 +160,7 @@ function Navbar() {
   };
 
   return (
-    <nav className="relative flex items-center justify-between gap-3 px-4 py-4 text-white md:gap-0">
+    <nav className="relative hidden md:flex items-center justify-between gap-3 px-4 py-4 text-white md:gap-0">
       <div className="flex items-center gap-3">
         <div className="flex flex-col leading-none">
           <span className="text-[0.62rem] font-medium uppercase tracking-[0.45em] text-white/45">Studio</span>
