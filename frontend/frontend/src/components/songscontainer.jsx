@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { usePlayer } from "./playerContext";
 import { useAuth } from "../context/AuthContext";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const SONGS_PER_BATCH = 15; // Load 15 songs at a time
 
 const getVideoId = (url) => {
   if (!url) return null;
@@ -19,9 +20,16 @@ const SongsContainer = () => {
   const [songs, setSongs] = useState([]);
   const [artists, setArtists] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [displayCounts, setDisplayCounts] = useState({
+    english: SONGS_PER_BATCH,
+    punjabi: SONGS_PER_BATCH,
+    haryanvi: SONGS_PER_BATCH,
+    bhojpuri: SONGS_PER_BATCH,
+  });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { setCurrentVideoId, setCurrentSong, setShowLoginModal, searchQuery, songList, setSongList, setCurrentIndex } = usePlayer();
+  const observerRef = useRef(null);
 
   useEffect(() => {
     if (songList && songList.length > 0) {
@@ -51,11 +59,29 @@ const SongsContainer = () => {
       .catch((err) => console.error("Error fetching artists:", err));
   }, []);
 
-  // Filter songs by search
+  // Filter songs by search with better ranking
   const searchText = (searchQuery || "").toLowerCase();
-  const filteredSongs = songs.filter((song) =>
-    (song?.title || "").toLowerCase().includes(searchText)
-  );
+  const filteredSongs = searchText
+    ? songs
+      .map((song) => {
+        const title = (song?.title || "").toLowerCase();
+        const artist = (song?.artist || "").toLowerCase();
+        let score = 0;
+
+        if (title.includes(searchText)) score += 10;
+        if (title.startsWith(searchText)) score += 20;
+        if (title === searchText) score += 50;
+
+        if (artist.includes(searchText)) score += 5;
+        if (artist.startsWith(searchText)) score += 15;
+        if (artist === searchText) score += 30;
+
+        return { ...song, searchScore: score };
+      })
+      .filter((song) => song.searchScore > 0)
+      .sort((a, b) => b.searchScore - a.searchScore)
+      .map(({ searchScore, ...song }) => song)
+    : songs;
 
   const EnglishSongs = filteredSongs.filter((song) => song.language === "English");
   const PunjabiSongs = filteredSongs.filter((song) => song.language === "Punjabi");
@@ -131,8 +157,8 @@ const getThumbnailUrl = (youtubeUrl) => {
     setCurrentIndex(index);
   };
 
-  const renderSongCards = (songList) =>
-    songList.map((song, index) => {
+  const renderSongCards = (songList, maxDisplay = SONGS_PER_BATCH) =>
+    songList.slice(0, maxDisplay).map((song, index) => {
       const plainSong = song?._doc || song || {};
       const songTitle = plainSong.title || song?.title || song?.name || "Unknown Song";
       const artistName = plainSong.artist || song?.artist || song?.singer || "Unknown Artist";
@@ -148,7 +174,8 @@ const getThumbnailUrl = (youtubeUrl) => {
           <img
             src={imageSrc}
             alt={songTitle}
-            className="h-32 w-full object-cover sm:h-36 md:h-40"
+            loading="lazy"
+            className="h-32 w-full object-cover sm:h-36 md:h-40 transition-transform duration-300 group-hover:scale-105"
           />
           <div className="space-y-1 px-3 py-3 text-left">
             <p className="truncate text-sm font-semibold text-white sm:text-base">{songTitle}</p>
@@ -205,10 +232,13 @@ const getThumbnailUrl = (youtubeUrl) => {
           </div>
         </div>
 
-        {/* 🎵 All Songs */}
+        {/* 🎵 All Songs or Search Results */}
         <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
           <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-xl font-semibold text-white">All Songs</h2>
+            <h2 className="text-xl font-semibold text-white">
+              {searchQuery ? `Search Results (${filteredSongs.length})` : "All Songs"}
+            </h2>
+            {filteredSongs.length > 0 && <span className="text-xs text-gray-400">{filteredSongs.length} total</span>}
           </div>
 
           {isLoading ? (
@@ -219,64 +249,123 @@ const getThumbnailUrl = (youtubeUrl) => {
             </div>
           ) : filteredSongs.length === 0 ? (
             <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-white/15 bg-[#1a1a1a] text-sm text-gray-400">
-              No songs found for this search.
+              {searchQuery ? "No songs found for this search." : "No songs available"}
             </div>
           ) : (
-            <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-                {renderSongCards(filteredSongs)}
+            <>
+              <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                  {renderSongCards(filteredSongs, displayCounts.english + 50)}
+                </div>
               </div>
-            </div>
+              {displayCounts.english + 50 < filteredSongs.length && (
+                <button
+                  type="button"
+                  onClick={() => setDisplayCounts(prev => ({ ...prev, english: prev.english + SONGS_PER_BATCH }))}
+                  className="mt-3 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+                >
+                  Load More ({filteredSongs.length - (displayCounts.english + 50)} remaining)
+                </button>
+              )}
+            </>
           )}
         </div>
 
         {/* 🎶 Punjabi */}
-        <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-xl font-semibold text-white">Punjabi Songs</h2>
-          </div>
-          <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-              {renderSongCards(PunjabiSongs)}
+        {PunjabiSongs.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-xl font-semibold text-white">Punjabi Songs</h2>
+              <span className="text-xs text-gray-400">{PunjabiSongs.length}</span>
             </div>
+            <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                {renderSongCards(PunjabiSongs, displayCounts.punjabi)}
+              </div>
+            </div>
+            {displayCounts.punjabi < PunjabiSongs.length && (
+              <button
+                type="button"
+                onClick={() => setDisplayCounts(prev => ({ ...prev, punjabi: prev.punjabi + SONGS_PER_BATCH }))}
+                className="mt-3 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Load More ({PunjabiSongs.length - displayCounts.punjabi} remaining)
+              </button>
+            )}
           </div>
-        </div>
+        )}
 
         {/* 🎶 Haryanvi */}
-        <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-xl font-semibold text-white">Haryanvi Songs</h2>
-          </div>
-          <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-              {renderSongCards(HaryanviSongs)}
+        {HaryanviSongs.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-xl font-semibold text-white">Haryanvi Songs</h2>
+              <span className="text-xs text-gray-400">{HaryanviSongs.length}</span>
             </div>
+            <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                {renderSongCards(HaryanviSongs, displayCounts.haryanvi)}
+              </div>
+            </div>
+            {displayCounts.haryanvi < HaryanviSongs.length && (
+              <button
+                type="button"
+                onClick={() => setDisplayCounts(prev => ({ ...prev, haryanvi: prev.haryanvi + SONGS_PER_BATCH }))}
+                className="mt-3 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Load More ({HaryanviSongs.length - displayCounts.haryanvi} remaining)
+              </button>
+            )}
           </div>
-        </div>
+        )}
 
         {/* 🎶 Bhojpuri */}
-        <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-xl font-semibold text-white">Bhojpuri Songs</h2>
-          </div>
-          <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-              {renderSongCards(BhojpuriSongs)}
+        {BhojpuriSongs.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-xl font-semibold text-white">Bhojpuri Songs</h2>
+              <span className="text-xs text-gray-400">{BhojpuriSongs.length}</span>
             </div>
+            <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                {renderSongCards(BhojpuriSongs, displayCounts.bhojpuri)}
+              </div>
+            </div>
+            {displayCounts.bhojpuri < BhojpuriSongs.length && (
+              <button
+                type="button"
+                onClick={() => setDisplayCounts(prev => ({ ...prev, bhojpuri: prev.bhojpuri + SONGS_PER_BATCH }))}
+                className="mt-3 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Load More ({BhojpuriSongs.length - displayCounts.bhojpuri} remaining)
+              </button>
+            )}
           </div>
-        </div>
+        )}
 
         {/* 🎶 English */}
-        <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="text-xl font-semibold text-white">English Songs</h2>
-          </div>
-          <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-              {renderSongCards(EnglishSongs)}
+        {EnglishSongs.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#171717] p-4 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-xl font-semibold text-white">English Songs</h2>
+              <span className="text-xs text-gray-400">{EnglishSongs.length}</span>
             </div>
+            <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent md:max-h-[560px]">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                {renderSongCards(EnglishSongs, displayCounts.english)}
+              </div>
+            </div>
+            {displayCounts.english < EnglishSongs.length && (
+              <button
+                type="button"
+                onClick={() => setDisplayCounts(prev => ({ ...prev, english: prev.english + SONGS_PER_BATCH }))}
+                className="mt-3 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Load More ({EnglishSongs.length - displayCounts.english} remaining)
+              </button>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

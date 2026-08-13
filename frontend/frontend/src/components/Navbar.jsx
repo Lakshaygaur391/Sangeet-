@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { IoIosSearch } from "react-icons/io";
 import { IoLogOutOutline, IoPersonCircleOutline } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const debounceTimer = useRef(null);
 
   const getVideoIdFromUrl = (url) => {
     if (!url) return null;
@@ -187,7 +188,13 @@ function Navbar() {
             className="w-full rounded-full bg-transparent py-2.5 pr-2 text-base text-white placeholder:text-white/70 focus:outline-none md:py-3 md:pr-4 md:text-lg"
             placeholder="Search songs, artists"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (debounceTimer.current) clearTimeout(debounceTimer.current);
+              debounceTimer.current = setTimeout(() => {
+                setSearchQuery(value);
+              }, 300);
+            }}
           />
           {searchQuery && (
             <button
