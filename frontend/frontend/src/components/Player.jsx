@@ -49,8 +49,12 @@ const Player = ({ videoId }) => {
   }, [safeVideoId, songList, currentIndex, currentSong]);
 
   const opts = {
-    width: "0",
-    height: "0",
+    // Mobile browsers are much more aggressive about suspending truly
+    // 0x0 iframes/video when the tab is backgrounded, minimized, or the
+    // app is split-screened. A real (but visually hidden, see wrapper
+    // below) size makes it far less likely to get killed.
+    width: "1",
+    height: "1",
     playerVars: {
       autoplay: 1,
       playsinline: 1,
@@ -191,6 +195,65 @@ const Player = ({ videoId }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // --- Media Session API -------------------------------------------------
+  // This is what tells mobile OSes (iOS Safari, Android Chrome) that this
+  // tab is playing legitimate background audio, similar to a music app.
+  // Without it, the browser has no reason to treat your tab differently
+  // from any other background tab, and will throttle/suspend it when you
+  // switch apps, lock the screen, or go split-screen.
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+
+    navigator.mediaSession.metadata = new window.MediaMetadata({
+      title: songTitle || "Sangeet",
+      artist: "Sangeet Player",
+      artwork: thumbnail ? [{ src: thumbnail, sizes: "512x512", type: "image/jpeg" }] : [],
+    });
+
+    navigator.mediaSession.setActionHandler("play", () => {
+      playerRef.current?.playVideo();
+      setIsPlaying(true);
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      playerRef.current?.pauseVideo();
+      setIsPlaying(false);
+    });
+    navigator.mediaSession.setActionHandler("previoustrack", () => playPrevSong());
+    navigator.mediaSession.setActionHandler("nexttrack", () => playNextSong());
+
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+
+    return () => {
+      if (!("mediaSession" in navigator)) return;
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songTitle, thumbnail, isPlaying, currentIndex]);
+
+  // --- Resume on visibility change ---------------------------------------
+  // Some mobile browsers still pause playback when the tab is backgrounded
+  // (e.g. switching apps, opening another app in split view) regardless of
+  // Media Session. When the tab becomes visible/foregrounded again, check
+  // if we were supposed to be playing and nudge it to resume.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isPlaying && playerRef.current) {
+        const state = playerRef.current.getPlayerState();
+        // 2 = paused, -1 = unstarted; only auto-resume if it was actually
+        // playing/buffering before and got knocked into paused by the OS.
+        if (state === 2) {
+          playerRef.current.playVideo();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isPlaying]);
+
 const togglePlayerSize = (event) => {
   event?.stopPropagation?.();
   setIsExpanded((prev) => !prev);
@@ -210,7 +273,11 @@ const togglePlayerSize = (event) => {
       }`}
     >
       <div className={`mx-auto flex w-full max-w-7xl items-center justify-between gap-4 ${isExpanded ? "flex-col w-full" : "flex-row"}`}>
-        {safeVideoId && <YouTube videoId={safeVideoId} opts={opts} onReady={onReady} onStateChange={onStateChange} />}
+        {safeVideoId && (
+          <div className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0">
+            <YouTube videoId={safeVideoId} opts={opts} onReady={onReady} onStateChange={onStateChange} />
+          </div>
+        )}
 
         <div className={`flex items-center ${isExpanded ? "w-full justify-center flex-col gap-4" : "w-[30%] min-w-0 gap-3"}`}>
           {thumbnail && (
