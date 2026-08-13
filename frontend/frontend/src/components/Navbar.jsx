@@ -151,6 +151,14 @@ function Navbar() {
 
       if (!videoId) return;
 
+      const thumbnailUrl = data?.thumbnail_url || `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+      
+      setCurrentSong({
+        title: query,
+        artist: "YouTube Search Result",
+        youtube_url: data?.youtube_url || `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnail_url: thumbnailUrl,
+      });
       setCurrentVideoId(videoId);
       setCurrentIndex(0);
       setSearchQuery("");
