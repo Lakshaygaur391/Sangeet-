@@ -48,7 +48,18 @@ const Player = ({ videoId }) => {
       .catch(() => {});
   }, [safeVideoId, songList, currentIndex, currentSong]);
 
-  const opts = { width: "0", height: "0", playerVars: { autoplay: 1 } };
+  const opts = {
+    width: "0",
+    height: "0",
+    playerVars: {
+      autoplay: 1,
+      playsinline: 1,
+      controls: 0,
+      rel: 0,
+      modestbranding: 1,
+      enablejsapi: 1,
+    },
+  };
 
   const getSongVideoId = (song) => {
     const rawSong = song?._doc || song || {};
@@ -77,10 +88,21 @@ const Player = ({ videoId }) => {
     playerRef.current = event.target;
     setDuration(event.target.getDuration());
     event.target.setVolume(volume);
+
+    const playerState = event.target.getPlayerState();
+    setIsPlaying(playerState === 1 || playerState === 3);
   };
 
   const onStateChange = (event) => {
-    if (event.data === 0) {
+    const playerState = event.data;
+
+    if (playerState === 1 || playerState === 3) {
+      setIsPlaying(true);
+    } else if (playerState === 2 || playerState === 5 || playerState === 0) {
+      setIsPlaying(false);
+    }
+
+    if (playerState === 0) {
       playSongAtIndex(currentIndex + 1);
     }
   };
@@ -92,9 +114,18 @@ const Player = ({ videoId }) => {
   }, [volume]);
 
   const handlePlayPause = () => {
-    if (isPlaying) playerRef.current?.pauseVideo();
-    else playerRef.current?.playVideo();
-    setIsPlaying(!isPlaying);
+    if (!playerRef.current) return;
+
+    const playerState = playerRef.current.getPlayerState();
+    const shouldPlay = playerState !== 1 && playerState !== 3;
+
+    if (shouldPlay) {
+      playerRef.current.playVideo();
+    } else {
+      playerRef.current.pauseVideo();
+    }
+
+    setIsPlaying(shouldPlay);
   };
 
 
