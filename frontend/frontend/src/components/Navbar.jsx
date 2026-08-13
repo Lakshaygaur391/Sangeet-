@@ -12,7 +12,25 @@ function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Local state drives what's shown in the input immediately.
+  // searchQuery (from context) is updated on a debounce and drives
+  // the actual filtering, so typing never feels laggy.
+  const [inputValue, setInputValue] = useState(searchQuery || "");
   const debounceTimer = useRef(null);
+
+  // Keep the visible input in sync if searchQuery changes elsewhere
+  // (e.g. cleared after selecting a song or an artist).
+  useEffect(() => {
+    setInputValue(searchQuery || "");
+  }, [searchQuery]);
+
+  // Clean up any pending debounce on unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   const getVideoIdFromUrl = (url) => {
     if (!url) return null;
@@ -132,10 +150,15 @@ function Navbar() {
     });
     setCurrentVideoId(videoId);
     setCurrentIndex(actualIndex >= 0 ? actualIndex : index);
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setInputValue("");
     setSearchQuery("");
   };
 
   const handleSelectArtist = (artistName) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setInputValue(artistName);
     setSearchQuery(artistName);
   };
 
@@ -153,7 +176,7 @@ function Navbar() {
       if (!videoId) return;
 
       const thumbnailUrl = data?.thumbnail_url || `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-      
+
       setCurrentSong({
         title: query,
         artist: "YouTube Search Result",
@@ -162,10 +185,28 @@ function Navbar() {
       });
       setCurrentVideoId(videoId);
       setCurrentIndex(0);
+
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      setInputValue("");
       setSearchQuery("");
     } catch (err) {
       console.error("Unable to search YouTube directly:", err);
     }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value); // instant visual feedback, no lag
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 300);
+  };
+
+  const handleClearInput = () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setInputValue("");
+    setSearchQuery("");
   };
 
   return (
@@ -187,19 +228,13 @@ function Navbar() {
             type="text"
             className="w-full rounded-full bg-transparent py-2.5 pr-2 text-base text-white placeholder:text-white/70 focus:outline-none md:py-3 md:pr-4 md:text-lg"
             placeholder="Search songs, artists"
-            value={searchQuery}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (debounceTimer.current) clearTimeout(debounceTimer.current);
-              debounceTimer.current = setTimeout(() => {
-                setSearchQuery(value);
-              }, 300);
-            }}
+            value={inputValue}
+            onChange={handleInputChange}
           />
-          {searchQuery && (
+          {inputValue && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
+              onClick={handleClearInput}
               className="mr-2 text-2xl text-white/80 hover:text-white md:mr-4"
             >
               ×
