@@ -1,7 +1,7 @@
 """
 Sangeet Music Scraper (scrap.py)
-Scrapes songs, direct MP3 audio stream links (wp-content/uploads/year/month/file.mp3),
-high-res album thumbnails, artists, and language metadata from PagalWorld.
+Scrapes multi-language song catalogs (Punjabi, Haryanvi, Bollywood, Indipop, Bhojpuri),
+extracts direct 320kbps MP3 stream URLs, high-res posters, and artists from PagalWorld.
 """
 
 import sys
@@ -28,13 +28,13 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+# Verified Category URLs on PagalWorld
 CATEGORY_MAP = {
-    "bollywood": f"{BASE_URL}/category/bollywood-songs/",
-    "punjabi": f"{BASE_URL}/category/punjabi-songs/",
-    "haryanvi": f"{BASE_URL}/category/haryanvi-songs/",
-    "indipop": f"{BASE_URL}/category/indipop-songs/",
-    "bhojpuri": f"{BASE_URL}/category/bhojpuri-songs/",
-    "hindi": f"{BASE_URL}/category/hindi-songs/",
+    "punjabi": f"{BASE_URL}/category/punjabi/",
+    "haryanvi": f"{BASE_URL}/category/haryanvi/",
+    "bollywood": f"{BASE_URL}/category/bollywood/",
+    "indipop": f"{BASE_URL}/category/indipop/",
+    "bhojpuri": f"{BASE_URL}/category/bhojpuri/",
 }
 
 
@@ -95,12 +95,8 @@ def extract_song_details(song_page_url, default_language="Hindi"):
         if not artist:
             artist = "Various Artists"
 
-        # 3. Extract Language / Category
+        # 3. Language is preserved from the Category
         language = default_language
-        for cat_name in CATEGORY_MAP.keys():
-            if cat_name in song_page_url.lower() or cat_name in res.text.lower()[:2000]:
-                language = cat_name.capitalize()
-                break
 
         # 4. Extract High-Res Thumbnail Image (500x500 poster)
         thumbnail_url = ""
@@ -184,7 +180,7 @@ def get_song_links_from_page(page_url):
 
 
 def get_paginated_song_links(base_listing_url, max_pages=5, target_count=None):
-    """Collect song links across multiple listing pages."""
+    """Collect song links across multiple listing pages (/page/2/, /page/3/, etc.)."""
     all_links = []
     seen = set()
 
@@ -212,42 +208,40 @@ def get_paginated_song_links(base_listing_url, max_pages=5, target_count=None):
     return all_links
 
 
-def scrape_catalog(limit=50, category=None):
-    """Scrape songs with validated stream URLs."""
-    targets = []
-    if category and category.lower() in CATEGORY_MAP:
-        targets.append((CATEGORY_MAP[category.lower()], category.capitalize()))
-    else:
-        targets.append((BASE_URL, "Hindi"))
-        for cat_name, cat_url in CATEGORY_MAP.items():
-            targets.append((cat_url, cat_name.capitalize()))
+def scrape_category(category_name, per_category_limit=20):
+    """Scrape songs from a specific category."""
+    cat_key = category_name.lower().strip()
+    if cat_key not in CATEGORY_MAP:
+        print(f"[!] Unknown category '{category_name}'. Available: {list(CATEGORY_MAP.keys())}")
+        return []
 
-    scraped_songs = []
-    seen_urls = set()
+    url = CATEGORY_MAP[cat_key]
+    lang_label = cat_key.capitalize()
 
-    print(f"[*] Starting scrape (Target limit: {limit} songs)...")
+    print(f"\n[+] Scraping {lang_label} songs from: {url}")
+    song_links = get_paginated_song_links(url, max_pages=4, target_count=per_category_limit)
+    print(f"    Found {len(song_links)} candidate songs.")
 
-    for listing_url, default_lang in targets:
-        if len(scraped_songs) >= limit:
+    scraped = []
+    for link in song_links:
+        if len(scraped) >= per_category_limit:
             break
+        details = extract_song_details(link, default_language=lang_label)
+        if details and details.get("audio_url"):
+            scraped.append(details)
+            print(f"    [OK] [{len(scraped)}/{per_category_limit}] {details['title']} - {details['artist']} ({lang_label})")
+            print(f"         Stream: {details['audio_url']}")
 
-        print(f"\n[+] Fetching from: {listing_url}")
-        song_links = get_paginated_song_links(listing_url, max_pages=3, target_count=limit)
+    return scraped
 
-        for song_url in song_links:
-            if len(scraped_songs) >= limit:
-                break
-            if song_url in seen_urls:
-                continue
-            seen_urls.add(song_url)
 
-            details = extract_song_details(song_url, default_language=default_lang)
-            if details and details.get("audio_url"):
-                scraped_songs.append(details)
-                print(f"    [OK] [{len(scraped_songs)}/{limit}] {details['title']} - {details['artist']}")
-                print(f"         Stream: {details['audio_url']}")
-
-    return scraped_songs
+def scrape_all_categories(per_category_limit=15):
+    """Scrape equal number of songs across all languages/categories."""
+    all_scraped = []
+    for cat_name in CATEGORY_MAP.keys():
+        songs = scrape_category(cat_name, per_category_limit=per_category_limit)
+        all_scraped.extend(songs)
+    return all_scraped
 
 
 def save_to_json(songs, output_path="backend/data/songs.json"):
@@ -273,6 +267,8 @@ def save_to_json(songs, output_path="backend/data/songs.json"):
             merged_map[key]["audio_url"] = s["audio_url"]
             if s.get("thumbnail_url"):
                 merged_map[key]["thumbnail_url"] = s["thumbnail_url"]
+            if s.get("language"):
+                merged_map[key]["language"] = s["language"]
         else:
             s["id"] = len(merged_map) + 1
             merged_map[key] = s
@@ -288,13 +284,18 @@ def save_to_json(songs, output_path="backend/data/songs.json"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scrape playable MP3 songs from PagalWorld")
-    parser.add_argument("--limit", type=int, default=50, help="Number of songs to scrape")
-    parser.add_argument("--category", type=str, default=None, choices=list(CATEGORY_MAP.keys()))
+    parser = argparse.ArgumentParser(description="Scrape playable MP3 songs by language/category from PagalWorld")
+    parser.add_argument("--category", type=str, default=None, choices=list(CATEGORY_MAP.keys()), help="Single category to scrape")
+    parser.add_argument("--per-category", type=int, default=15, help="Number of songs per category (default: 15)")
+    parser.add_argument("--all", action="store_true", help="Scrape all categories (Punjabi, Haryanvi, Bollywood, Indipop, Bhojpuri)")
     parser.add_argument("--output", type=str, default="backend/data/songs.json")
 
     args = parser.parse_args()
-    scraped = scrape_catalog(limit=args.limit, category=args.category)
+
+    if args.category:
+        scraped = scrape_category(args.category, per_category_limit=args.per_category)
+    else:
+        scraped = scrape_all_categories(per_category_limit=args.per_category)
 
     if scraped:
         save_to_json(scraped, output_path=args.output)
