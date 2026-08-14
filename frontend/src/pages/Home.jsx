@@ -46,20 +46,20 @@ const Home = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const songs = useMemo(() => songList.map(normalizeSong), [songList]);
+
   const byLanguage = (lang) =>
     songs.filter((s) => {
       const songLang = (s.language || "").trim().toLowerCase();
       const target = lang.trim().toLowerCase();
-      if (target === "hindi") {
-        return songLang === "hindi" || songLang === "bollywood";
-      }
       return songLang === target;
     });
 
   const featured = songs[0];
   const fresh = songs.slice(0, 12);
   const trending = useMemo(() => [...songs].sort(() => 0.5 - Math.random()).slice(0, 12), [songs]);
-  const regions = ["Punjabi", "Haryanvi", "Bhojpuri", "Hindi", "English"].map((lang) => ({
+  // Show language spotlights in priority order; only include those with songs
+  const regions = ["Punjabi", "Haryanvi", "Bollywood", "Hindi", "Bhojpuri", "Indipop", "English"].map((lang) => ({
     lang,
     songs: byLanguage(lang),
   })).filter((r) => r.songs.length > 0);
