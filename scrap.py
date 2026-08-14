@@ -100,8 +100,15 @@ def extract_song_details(song_page_url, default_language="Hindi"):
         if not artist:
             artist = "Various Artists"
 
-        # 3. Preserve Category Language
+        # 3. Extract exact language from breadcrumb on song detail page
         language = default_language
+        breadcrumb = soup.find("ul", class_="breadcrumb")
+        if breadcrumb:
+            cat_link = breadcrumb.find("a", href=re.compile(r"/category/([^/]+)/"))
+            if cat_link:
+                raw_lang = cat_link.get_text(strip=True).capitalize()
+                if raw_lang:
+                    language = raw_lang
 
         # 4. Extract High-Res Thumbnail Image (500x500 poster)
         thumbnail_url = ""

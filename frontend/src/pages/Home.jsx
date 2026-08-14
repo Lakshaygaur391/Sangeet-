@@ -46,8 +46,15 @@ const Home = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const songs = useMemo(() => songList.map(normalizeSong), [songList]);
-  const byLanguage = (lang) => songs.filter((s) => s.language === lang);
+  const byLanguage = (lang) =>
+    songs.filter((s) => {
+      const songLang = (s.language || "").trim().toLowerCase();
+      const target = lang.trim().toLowerCase();
+      if (target === "hindi") {
+        return songLang === "hindi" || songLang === "bollywood";
+      }
+      return songLang === target;
+    });
 
   const featured = songs[0];
   const fresh = songs.slice(0, 12);
