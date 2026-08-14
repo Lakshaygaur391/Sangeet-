@@ -3,7 +3,13 @@ import dotenv from "dotenv";
 import fs from "fs";
 import Song from "./models/Song.js";
 
-dotenv.config();
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const normalizeText = (value = "") =>
   String(value)
@@ -69,7 +75,7 @@ if (!mongoUri) {
 mongoose
   .connect(mongoUri)
   .then(async () => {
-    const rawData = fs.readFileSync("./data/songs.json", "utf8");
+    const rawData = fs.readFileSync(path.join(__dirname, "data/songs.json"), "utf8");
     const songs = JSON.parse(rawData);
 
     if (!Array.isArray(songs)) {

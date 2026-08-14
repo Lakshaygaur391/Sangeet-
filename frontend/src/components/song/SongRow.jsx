@@ -15,7 +15,7 @@ const SongRow = ({ song: rawSong, queue, index, showIndex = true, duration, onMe
   const { openAuthPrompt } = useUI();
 
   const isActive = currentSong && songId(currentSong) === songId(song);
-  const unavailable = !song.youtube_url && !song._id;
+  const unavailable = !song.audio_url;
 
   const handlePlay = () => {
     if (isActive) {

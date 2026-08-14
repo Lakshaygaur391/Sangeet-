@@ -203,7 +203,8 @@ export const enrichSong = async (song) => {
 
 export const getAllSongs = async (req, res) => {
   try {
-    const songs = await Song.find({}).lean();
+    // Only return songs that have a direct MP3 audio_url so the player always works
+    const songs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
     const normalizedSongs = dedupeSongs(songs);
     res.json(normalizedSongs);
   } catch (err) {
@@ -214,7 +215,8 @@ export const getAllSongs = async (req, res) => {
 export const getSongsByLanguage = async (req, res) => {
   try {
     const language = req.params.language;
-    const songs = await Song.find({ language: language }).lean();
+    // Only return songs that have a direct MP3 audio_url
+    const songs = await Song.find({ language, audio_url: { $exists: true, $ne: "" } }).lean();
     const normalizedSongs = dedupeSongs(songs);
     res.json(normalizedSongs);
   } catch (err) {
@@ -224,7 +226,8 @@ export const getSongsByLanguage = async (req, res) => {
 
 export const getArtists = async (req, res) => {
   try {
-    const songs = await Song.find({}).lean();
+    // Only build artist cards from songs that have a playable audio_url
+    const songs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
     const dedupedSongs = dedupeSongs(songs);
     const artistMap = new Map();
 

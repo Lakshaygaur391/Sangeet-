@@ -19,7 +19,7 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
 
   const isActive = currentSong && songId(currentSong) === songId(song);
   const liked = isLiked(song);
-  const unavailable = !song.youtube_url && !song._id;
+  const unavailable = !song.audio_url;
 
   const handleAddToPlaylist = () => {
     setMenuOpen(false);

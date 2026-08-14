@@ -1,14 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { getVideoId, normalizeSong, songId } from "../lib/media";
+import { normalizeSong, songId } from "../lib/media";
 
 const PlayerContext = createContext();
 
 export const REPEAT_MODES = ["off", "all", "one"];
 
 export const PlayerProvider = ({ children }) => {
-  const [currentVideoId, setCurrentVideoId] = useState(null);
   const [currentSong, setCurrentSong] = useState(null);
-  const [songList, setSongList] = useState([]); // acts as the active queue's source list
+  const [songList, setSongList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -21,9 +20,9 @@ export const PlayerProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // The actual audio engine (HTML5 Audio with YouTube fallback) lives inside <Player />;
-  // it registers its seek and controls here so any UI (mini player, Now Playing)
-  // can seek/read time without mounting a duplicate audio element.
+  // The native HTML5 audio engine lives inside <Player />.
+  // It registers its controls here so any UI can seek without
+  // mounting a duplicate audio element.
   const engineRef = useRef(null);
   const registerEngine = useCallback((instance) => {
     engineRef.current = instance;
@@ -35,19 +34,15 @@ export const PlayerProvider = ({ children }) => {
   }, []);
 
   const onPlayRef = useRef(null);
-  // Allows other contexts (e.g. LibraryContext, for "recently played") to
-  // hook into playback without PlayerContext needing to know about them.
   const registerOnPlay = useCallback((callback) => {
     onPlayRef.current = callback;
   }, []);
 
-  // The single reusable entry point every page uses to start playback.
-  // playSong(song, queue, index) — queue defaults to [song] if omitted.
+  // Single entry point every page uses to start playback.
+  // playSong(song, queue, index)
   const playSong = useCallback((rawSong, queue, index) => {
     const song = normalizeSong(rawSong);
-    const audioUrl = song.audio_url || "";
-    const videoId = getVideoId(song.youtube_url);
-    if (!audioUrl && !videoId) return false;
+    if (!song.audio_url) return false;
 
     const list = Array.isArray(queue) && queue.length > 0 ? queue : [song];
     const resolvedIndex =
@@ -58,7 +53,6 @@ export const PlayerProvider = ({ children }) => {
     setSongList(list);
     setCurrentIndex(resolvedIndex >= 0 ? resolvedIndex : 0);
     setCurrentSong(song);
-    setCurrentVideoId(videoId);
     setIsPlaying(true);
     onPlayRef.current?.(song);
     return true;
@@ -69,12 +63,9 @@ export const PlayerProvider = ({ children }) => {
       if (!songList.length) return;
       const safeIndex = ((index % songList.length) + songList.length) % songList.length;
       const song = normalizeSong(songList[safeIndex]);
-      const audioUrl = song.audio_url || "";
-      const videoId = getVideoId(song.youtube_url);
-      if (!audioUrl && !videoId) return;
+      if (!song.audio_url) return;
       setCurrentIndex(safeIndex);
       setCurrentSong(song);
-      setCurrentVideoId(videoId);
       setIsPlaying(true);
       onPlayRef.current?.(song);
     },
@@ -112,13 +103,10 @@ export const PlayerProvider = ({ children }) => {
     setRepeatMode((prev) => REPEAT_MODES[(REPEAT_MODES.indexOf(prev) + 1) % REPEAT_MODES.length]);
   }, []);
 
-  const removeFromQueue = useCallback(
-    (index) => {
-      setSongList((prev) => prev.filter((_, i) => i !== index));
-      setCurrentIndex((prev) => (index < prev ? prev - 1 : prev));
-    },
-    []
-  );
+  const removeFromQueue = useCallback((index) => {
+    setSongList((prev) => prev.filter((_, i) => i !== index));
+    setCurrentIndex((prev) => (index < prev ? prev - 1 : prev));
+  }, []);
 
   const clearQueue = useCallback(() => {
     setSongList((prev) => (prev.length ? [prev[currentIndex]] : []));
@@ -127,8 +115,6 @@ export const PlayerProvider = ({ children }) => {
 
   const value = useMemo(
     () => ({
-      currentVideoId,
-      setCurrentVideoId,
       currentSong,
       songList,
       setSongList,
@@ -164,7 +150,6 @@ export const PlayerProvider = ({ children }) => {
       registerOnPlay,
     }),
     [
-      currentVideoId,
       currentSong,
       songList,
       currentIndex,

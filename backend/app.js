@@ -6,6 +6,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import songRoutes from "./routes/songRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import libraryRoutes from "./routes/libraryRoutes.js";
+import playlistRoutes from "./routes/playlistRoutes.js";
 
 dotenv.config();
 
@@ -48,6 +50,8 @@ app.use(async (req, res, next) => {
 app.get("/", (req, res) => res.send("API is running"));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/library", libraryRoutes);
+app.use("/api/playlists", playlistRoutes);
 app.use("/api", songRoutes);
 
 export default app;

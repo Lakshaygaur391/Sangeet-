@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import YouTube from "react-youtube";
 import {
   IoPlaySkipBack,
   IoPlaySkipForward,
@@ -18,11 +17,8 @@ import { useLibrary } from "../../context/LibraryContext";
 import { formatTime } from "../../lib/media";
 import useMediaSession from "../../hooks/useMediaSession";
 
-const ytOpts = { width: "0", height: "0", playerVars: { autoplay: 1, playsinline: 1 } };
-
 const Player = () => {
   const {
-    currentVideoId,
     currentSong,
     isPlaying,
     setIsPlaying,
@@ -47,14 +43,7 @@ const Player = () => {
   const { isLiked, toggleLike } = useLibrary();
 
   const audioRef = useRef(null);
-  const ytPlayerRef = useRef(null);
   const [prevVolume, setPrevVolume] = useState(100);
-
-  const hasAudioUrl = Boolean(currentSong?.audio_url);
-  const safeVideoId =
-    !hasAudioUrl && currentVideoId && /^[A-Za-z0-9_-]{11}$/.test(currentVideoId)
-      ? currentVideoId
-      : null;
 
   // OS Notification, Lock-Screen, and Headphone Controls
   useMediaSession({
@@ -72,95 +61,51 @@ const Player = () => {
   useEffect(() => {
     registerEngine({
       seekTo: (time) => {
-        if (hasAudioUrl && audioRef.current) {
-          audioRef.current.currentTime = time;
-        } else if (ytPlayerRef.current) {
-          ytPlayerRef.current.seekTo?.(time, true);
-        }
+        if (audioRef.current) audioRef.current.currentTime = time;
       },
       play: () => {
-        if (hasAudioUrl && audioRef.current) {
-          audioRef.current.play().catch(() => {});
-        } else if (ytPlayerRef.current) {
-          ytPlayerRef.current.playVideo?.();
-        }
+        audioRef.current?.play().catch(() => {});
       },
       pause: () => {
-        if (hasAudioUrl && audioRef.current) {
-          audioRef.current.pause();
-        } else if (ytPlayerRef.current) {
-          ytPlayerRef.current.pauseVideo?.();
-        }
+        audioRef.current?.pause();
       },
     });
-  }, [hasAudioUrl, registerEngine]);
+  }, [registerEngine]);
 
   // Synchronize Play / Pause state with HTML5 Audio
   useEffect(() => {
-    if (!hasAudioUrl || !audioRef.current) return;
+    if (!audioRef.current) return;
     if (isPlaying) {
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          // Autoplay policy or media load error
-          console.warn("Audio playback interrupted:", err.message);
-        });
+      const p = audioRef.current.play();
+      if (p !== undefined) {
+        p.catch((err) => console.warn("Audio playback interrupted:", err.message));
       }
     } else {
       audioRef.current.pause();
     }
-  }, [isPlaying, currentSong?.audio_url, hasAudioUrl]);
+  }, [isPlaying, currentSong?.audio_url]);
 
-  // Synchronize Volume with HTML5 Audio and YouTube
+  // Synchronize Volume with HTML5 Audio
   useEffect(() => {
-    if (hasAudioUrl && audioRef.current) {
-      audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
-    } else if (ytPlayerRef.current) {
-      ytPlayerRef.current.setVolume?.(volume);
-    }
-  }, [volume, hasAudioUrl]);
-
-  // YouTube Fallback Handlers
-  const onYtReady = (event) => {
-    ytPlayerRef.current = event.target;
-    if (!hasAudioUrl) {
-      setDuration(event.target.getDuration());
-      event.target.setVolume(volume);
-      if (isPlaying) event.target.playVideo();
-    }
-  };
-
-  const onYtStateChange = (event) => {
-    if (!hasAudioUrl && event.data === 0) {
-      onTrackEnd();
-    }
-  };
-
-  // HTML5 Audio Event Listeners
-  const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime || 0);
+      audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
     }
+  }, [volume]);
+
+  // HTML5 Audio Event Handlers
+  const handleTimeUpdate = () => {
+    if (audioRef.current) setCurrentTime(audioRef.current.currentTime || 0);
   };
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration || 0);
       audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
-      if (isPlaying) {
-        audioRef.current.play().catch(() => {});
-      }
+      if (isPlaying) audioRef.current.play().catch(() => {});
     }
   };
 
-  const handleAudioEnded = () => {
-    onTrackEnd();
-  };
-
-  const handleSeek = (e) => {
-    const time = Number(e.target.value);
-    seekTo(time);
-  };
+  const handleSeek = (e) => seekTo(Number(e.target.value));
 
   const toggleMute = () => {
     if (volume > 0) {
@@ -175,32 +120,18 @@ const Player = () => {
 
   return (
     <>
-      {/* Primary HTML5 Audio Engine for Background Playback */}
-      {hasAudioUrl && (
-        <audio
-          ref={audioRef}
-          src={currentSong.audio_url}
-          preload="metadata"
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onDurationChange={handleLoadedMetadata}
-          onEnded={handleAudioEnded}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-        />
-      )}
-
-      {/* Fallback YouTube Engine (only if song lacks direct audio_url) */}
-      {!hasAudioUrl && safeVideoId && (
-        <div className="sr-only">
-          <YouTube
-            videoId={safeVideoId}
-            opts={ytOpts}
-            onReady={onYtReady}
-            onStateChange={onYtStateChange}
-          />
-        </div>
-      )}
+      {/* Native HTML5 Audio — enables background play, OS controls, Bluetooth */}
+      <audio
+        ref={audioRef}
+        src={currentSong.audio_url || ""}
+        preload="metadata"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onDurationChange={handleLoadedMetadata}
+        onEnded={onTrackEnd}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
 
       {/* Desktop Transport Bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[92px] items-center gap-4 border-t border-white/10 bg-[#0f0f10]/97 px-4 shadow-[0_-8px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl md:flex md:px-6">
