@@ -9,8 +9,23 @@ import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import songService from "../services/songService";
-import artistService from "../services/artistService";
 import { normalizeSong } from "../lib/media";
+
+// Curated list of featured artists — static, no API call needed
+const FEATURED_ARTISTS = [
+  { name: "Arijit Singh",    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Arijit_Singh_live_performance_in_2024.jpg/440px-Arijit_Singh_live_performance_in_2024.jpg", verified: true },
+  { name: "Diljit Dosanjh",  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Diljit_Dosanjh_2023.jpg/440px-Diljit_Dosanjh_2023.jpg", verified: true },
+  { name: "Badshah",         image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Badshah_2023.jpg/440px-Badshah_2023.jpg", verified: true },
+  { name: "Shreya Ghoshal",  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Shreya_Ghoshal_2023.jpg/440px-Shreya_Ghoshal_2023.jpg", verified: true },
+  { name: "Neha Kakkar",     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Neha_Kakkar_2022.jpg/440px-Neha_Kakkar_2022.jpg", verified: true },
+  { name: "Guru Randhawa",   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Guru_Randhawa_2019.jpg/440px-Guru_Randhawa_2019.jpg", verified: true },
+  { name: "Ap Dhillon",      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/AP_Dhillon_2023.jpg/440px-AP_Dhillon_2023.jpg", verified: true },
+  { name: "Masoom Sharma",   image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&auto=format&fit=crop&q=80", verified: true },
+  { name: "Khasa Aala Chahar", image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&auto=format&fit=crop&q=80", verified: true },
+  { name: "Renuka Panwar",   image: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80", verified: true },
+  { name: "R Nait",          image: "https://images.unsplash.com/photo-1571266028243-d220c6a7a2d0?w=400&auto=format&fit=crop&q=80", verified: true },
+  { name: "Sumit Goswami",   image: "https://images.unsplash.com/photo-1598387993441-a364f854ceba?w=400&auto=format&fit=crop&q=80", verified: true },
+];
 
 const GREETINGS = ["Welcome back", "Good to see you", "Ready to listen"];
 
@@ -20,7 +35,6 @@ const Home = () => {
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
   const [status, setStatus] = useState("loading");
-  const [artists, setArtists] = useState([]);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
 
   const greeting = useMemo(() => GREETINGS[new Date().getDate() % GREETINGS.length], []);
@@ -29,14 +43,13 @@ const Home = () => {
     let cancelled = false;
     async function load() {
       setStatus("loading");
-      const [songs, artistList] = await Promise.all([songService.getAll(), artistService.getAll()]);
+      const songs = await songService.getAll();
       if (cancelled) return;
       if (songs === null) {
         setStatus("error");
         return;
       }
       setSongList(songs);
-      setArtists(artistList || []);
       setStatus("ready");
     }
     load();
@@ -143,13 +156,11 @@ const Home = () => {
 
       <Section
         title="Artists to Explore"
-        status={status === "loading" ? "loading" : artists.length === 0 ? "empty" : "ready"}
-        emptyTitle="No artists yet"
-        emptyDescription="Artists will show up here once your library has some."
+        status="ready"
         id="artists"
       >
-        {artists.map((artist) => (
-          <ArtistCard key={artist.id || artist.name} artist={artist} />
+        {FEATURED_ARTISTS.map((artist) => (
+          <ArtistCard key={artist.name} artist={artist} />
         ))}
       </Section>
 

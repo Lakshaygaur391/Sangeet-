@@ -34,7 +34,7 @@ const ArtistCard = ({ artist, onPlay }) => {
           {artist.name}
           {artist.verified && <IoCheckmarkCircle className="shrink-0 text-amber-400" title="Verified artist" />}
         </p>
-        <p className="text-meta mt-0.5">{songCount} songs</p>
+        {songCount > 0 && <p className="text-meta mt-0.5">{songCount} songs</p>}
       </div>
     </button>
   );
