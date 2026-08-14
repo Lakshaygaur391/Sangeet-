@@ -8,8 +8,9 @@
     "backend"
   ],
   "scripts": {
+    "install-all": "npm --prefix frontend install && npm --prefix backend install",
+    "build": "npm --prefix frontend run build && node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true}); fs.cpSync('frontend/dist', 'dist', {recursive:true});\"",
     "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "start": "npm --prefix backend start",
     "test": "npm --prefix frontend run lint && npm --prefix backend test"

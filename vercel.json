@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/audio/(.*)",
+      "destination": "/backend/audio/$1"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/backend/app.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
