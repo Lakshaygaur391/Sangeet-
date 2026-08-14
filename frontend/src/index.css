@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/* ===================== SANGEET DESIGN TOKENS ===================== */
+@theme {
+  /* Surfaces */
+  --color-canvas: #050505;
+  --color-surface-0: #0a0a0b;
+  --color-surface-1: #121212;
+  --color-surface-2: #171717;
+  --color-surface-3: #1e1e1e;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+
+  /* Brand */
+  --color-gold-100: #fde9c2;
+  --color-gold-300: #f3c869;
+  --color-gold-400: #eab34a;
+  --color-gold-500: #d99a2b;
+  --color-gold-600: #b47a1c;
+
+  /* Text */
+  --color-ink-100: #ffffff;
+  --color-ink-200: rgba(255, 255, 255, 0.86);
+  --color-ink-300: rgba(255, 255, 255, 0.62);
+  --color-ink-400: rgba(255, 255, 255, 0.42);
+
+  /* Secondary accents (sparingly used) */
+  --color-accent-teal: #4fd1c5;
+  --color-accent-rose: #e8748a;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(234, 179, 74, 0.07), transparent 22%),
+    linear-gradient(180deg, #050505 0%, #0b0b0d 100%);
+  color: var(--color-ink-100);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+    rgba(12, 12, 13, 0.92);
+}
+
+/* ===================== TYPOGRAPHY SCALE ===================== */
+.text-display { font-size: clamp(2rem, 3vw + 1rem, 3.25rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.text-h1 { font-size: clamp(1.5rem, 1.6vw + 1rem, 2.25rem); font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+.text-h2 { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.005em; }
+.text-h3 { font-size: 1.0625rem; font-weight: 600; }
+.text-body { font-size: 0.9375rem; font-weight: 400; color: var(--color-ink-200); }
+.text-caption { font-size: 0.8125rem; font-weight: 500; color: var(--color-ink-300); }
+.text-meta { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-400); }
+
+/* ===================== NAV / SHARED ELEMENTS ===================== */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-hairline);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.55rem 0.9rem;
+  color: var(--color-ink-300);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  border-color: rgba(234, 179, 74, 0.34);
+  color: #fff;
+  background: rgba(234, 179, 74, 0.06);
+  box-shadow: 0 0 0 1px rgba(234, 179, 74, 0.15);
+}
+
+.nav-link.active {
+  background: rgba(234, 179, 74, 0.12);
+  border-color: rgba(234, 179, 74, 0.4);
+  color: var(--color-gold-100);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-400);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(234, 179, 74, 0.35);
+  color: white;
+}
+
+::-webkit-scrollbar { height: 8px; width: 8px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); }
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { scrollbar-width: none; }
+
+/* ===================== ANIMATIONS ===================== */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 0%, #232323 50%, #1a1a1a 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-toast-in { animation: toast-in 0.22s ease-out; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.25s ease-out; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.28s ease-out; }

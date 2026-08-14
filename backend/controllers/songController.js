@@ -75,6 +75,7 @@ export const dedupeSongs = (songs = []) => {
     };
 
     if (!existing.image && normalized.image) next.image = normalized.image;
+    if (!existing.audio_url && normalized.audio_url) next.audio_url = normalized.audio_url;
     if (!existing.youtube_url && normalized.youtube_url) next.youtube_url = normalized.youtube_url;
     if (!existing.thumbnail_url && normalized.thumbnail_url) next.thumbnail_url = normalized.thumbnail_url;
 

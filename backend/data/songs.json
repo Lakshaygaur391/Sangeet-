@@ -160,7 +160,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/uHhvdoCGnbI/mqdefault.jpg"
   },
   {
-    "id": 21,
+    "id": 618,
     "title": "Admirin You",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -184,7 +184,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/x-KbnJ9fvJc/mqdefault.jpg"
   },
   {
-    "id": 24,
+    "id": 615,
     "title": "Softly",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -192,7 +192,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/cWMxCE2HTag/mqdefault.jpg"
   },
   {
-    "id": 25,
+    "id": 614,
     "title": "Dont Worry",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -200,7 +200,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/oA0TDB0Lg5Y/mqdefault.jpg"
   },
   {
-    "id": 26,
+    "id": 616,
     "title": "Tension",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -208,7 +208,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/0Dw97w5P3cs/mqdefault.jpg"
   },
   {
-    "id": 27,
+    "id": 612,
     "title": "Keh Gayi",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -216,7 +216,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/5GCfYLguTIs/mqdefault.jpg"
   },
   {
-    "id": 28,
+    "id": 613,
     "title": "Bacardi",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -224,7 +224,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/i3UJVYOUbII/mqdefault.jpg"
   },
   {
-    "id": 29,
+    "id": 611,
     "title": "Jhanjar",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -232,7 +232,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/ZnGMxARIxoY/mqdefault.jpg"
   },
   {
-    "id": 30,
+    "id": 617,
     "title": "Mast",
     "artist": "Karan Aujla",
     "language": "Punjabi",
@@ -256,10 +256,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/fG70qm6usR8/mqdefault.jpg"
   },
   {
-    "id": 33,
+    "id": 560,
     "title": "Insane",
     "artist": "AP Dhillon",
-    "language": "Punjabi",
+    "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=cqP8I5aaud8",
     "thumbnail_url": "https://img.youtube.com/vi/cqP8I5aaud8/mqdefault.jpg"
   },
@@ -280,10 +280,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/hBlO1i_WTiY/mqdefault.jpg"
   },
   {
-    "id": 36,
+    "id": 561,
     "title": "Summer High",
     "artist": "AP Dhillon",
-    "language": "Punjabi",
+    "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=nqUN530Rgtw",
     "thumbnail_url": "https://img.youtube.com/vi/nqUN530Rgtw/mqdefault.jpg"
   },
@@ -320,10 +320,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/mZQH8CPQ-wo/mqdefault.jpg"
   },
   {
-    "id": 41,
+    "id": 513,
     "title": "Lahore",
     "artist": "Guru Randhawa",
-    "language": "Punjabi",
+    "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=dZ0fwJojhrs",
     "thumbnail_url": "https://img.youtube.com/vi/dZ0fwJojhrs/mqdefault.jpg"
   },
@@ -336,10 +336,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/z-ZEHL4Df-A/mqdefault.jpg"
   },
   {
-    "id": 43,
+    "id": 512,
     "title": "High Rated Gabru",
     "artist": "Guru Randhawa",
-    "language": "Punjabi",
+    "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=hjWf8A0YNSE",
     "thumbnail_url": "https://img.youtube.com/vi/hjWf8A0YNSE/mqdefault.jpg"
   },
@@ -392,7 +392,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/4RSxIX2I6Ic/mqdefault.jpg"
   },
   {
-    "id": 50,
+    "id": 625,
     "title": "Tu Meri Rani",
     "artist": "Guru Randhawa",
     "language": "Punjabi",
@@ -496,10 +496,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/1poXN3jF3Bw/mqdefault.jpg"
   },
   {
-    "id": 63,
+    "id": 533,
     "title": "Teri Mitti",
     "artist": "B Praak",
-    "language": "Punjabi",
+    "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=tionpZAVPd4",
     "thumbnail_url": "https://img.youtube.com/vi/tionpZAVPd4/mqdefault.jpg"
   },
@@ -4084,22 +4084,6 @@
     "thumbnail_url": "https://img.youtube.com/vi/YpkJO_GrCo0/mqdefault.jpg"
   },
   {
-    "id": 512,
-    "title": "High Rated Gabru",
-    "artist": "Guru Randhawa",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=hjWf8A0YNSE",
-    "thumbnail_url": "https://img.youtube.com/vi/hjWf8A0YNSE/mqdefault.jpg"
-  },
-  {
-    "id": 513,
-    "title": "Lahore",
-    "artist": "Guru Randhawa",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=dZ0fwJojhrs",
-    "thumbnail_url": "https://img.youtube.com/vi/dZ0fwJojhrs/mqdefault.jpg"
-  },
-  {
     "id": 514,
     "title": "Suit Suit",
     "artist": "Guru Randhawa, Arjun",
@@ -4250,14 +4234,6 @@
     "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=V7LwfY5U5WI",
     "thumbnail_url": "https://img.youtube.com/vi/V7LwfY5U5WI/mqdefault.jpg"
-  },
-  {
-    "id": 533,
-    "title": "Teri Mitti",
-    "artist": "B Praak",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=tionpZAVPd4",
-    "thumbnail_url": "https://img.youtube.com/vi/tionpZAVPd4/mqdefault.jpg"
   },
   {
     "id": 534,
@@ -4468,26 +4444,10 @@
     "thumbnail_url": "https://img.youtube.com/vi/VNs_cCtdbPc/mqdefault.jpg"
   },
   {
-    "id": 560,
-    "title": "Insane",
-    "artist": "AP Dhillon",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=cqP8I5aaud8",
-    "thumbnail_url": "https://img.youtube.com/vi/cqP8I5aaud8/mqdefault.jpg"
-  },
-  {
-    "id": 561,
-    "title": "Summer High",
-    "artist": "AP Dhillon",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=nqUN530Rgtw",
-    "thumbnail_url": "https://img.youtube.com/vi/nqUN530Rgtw/mqdefault.jpg"
-  },
-  {
-    "id": 562,
+    "id": 619,
     "title": "With You",
     "artist": "AP Dhillon",
-    "language": "Hindi",
+    "language": "Punjabi",
     "youtube_url": "https://www.youtube.com/watch?v=mZQH8CPQ-wo",
     "thumbnail_url": "https://img.youtube.com/vi/mZQH8CPQ-wo/mqdefault.jpg"
   },
@@ -4570,7 +4530,7 @@
     "thumbnail_url": "https://img.youtube.com/vi/CWfCp96-yck/mqdefault.jpg"
   },
   {
-    "id": 573,
+    "id": 579,
     "title": "Manwa Laage",
     "artist": "Shreya Ghoshal, Arijit Singh",
     "language": "Hindi",
@@ -4616,14 +4576,6 @@
     "language": "Hindi",
     "youtube_url": "https://www.youtube.com/watch?v=U35XNKr1Yn4",
     "thumbnail_url": "https://img.youtube.com/vi/U35XNKr1Yn4/mqdefault.jpg"
-  },
-  {
-    "id": 579,
-    "title": "Manwa Laage",
-    "artist": "Shreya Ghoshal, Arijit Singh",
-    "language": "Hindi",
-    "youtube_url": "https://www.youtube.com/watch?v=hK_Sey44PkU",
-    "thumbnail_url": "https://img.youtube.com/vi/hK_Sey44PkU/mqdefault.jpg"
   },
   {
     "id": 580,
@@ -4874,78 +4826,6 @@
     "thumbnail_url": "https://img.youtube.com/vi/RpFk_mt-HUg/mqdefault.jpg"
   },
   {
-    "id": 611,
-    "title": "Jhanjar",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=ZnGMxARIxoY",
-    "thumbnail_url": "https://img.youtube.com/vi/ZnGMxARIxoY/mqdefault.jpg"
-  },
-  {
-    "id": 612,
-    "title": "Keh Gayi",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=5GCfYLguTIs",
-    "thumbnail_url": "https://img.youtube.com/vi/5GCfYLguTIs/mqdefault.jpg"
-  },
-  {
-    "id": 613,
-    "title": "Bacardi",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=i3UJVYOUbII",
-    "thumbnail_url": "https://img.youtube.com/vi/i3UJVYOUbII/mqdefault.jpg"
-  },
-  {
-    "id": 614,
-    "title": "Dont Worry",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=oA0TDB0Lg5Y",
-    "thumbnail_url": "https://img.youtube.com/vi/oA0TDB0Lg5Y/mqdefault.jpg"
-  },
-  {
-    "id": 615,
-    "title": "Softly",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=cWMxCE2HTag",
-    "thumbnail_url": "https://img.youtube.com/vi/cWMxCE2HTag/mqdefault.jpg"
-  },
-  {
-    "id": 616,
-    "title": "Tension",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=0Dw97w5P3cs",
-    "thumbnail_url": "https://img.youtube.com/vi/0Dw97w5P3cs/mqdefault.jpg"
-  },
-  {
-    "id": 617,
-    "title": "Mast",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=Go6EDs6GsUk",
-    "thumbnail_url": "https://img.youtube.com/vi/Go6EDs6GsUk/mqdefault.jpg"
-  },
-  {
-    "id": 618,
-    "title": "Admirin You",
-    "artist": "Karan Aujla",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=k85UB5b6pJU",
-    "thumbnail_url": "https://img.youtube.com/vi/k85UB5b6pJU/mqdefault.jpg"
-  },
-  {
-    "id": 619,
-    "title": "With You",
-    "artist": "AP Dhillon",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=mZQH8CPQ-wo",
-    "thumbnail_url": "https://img.youtube.com/vi/mZQH8CPQ-wo/mqdefault.jpg"
-  },
-  {
     "id": 620,
     "title": "Koka",
     "artist": "AP Dhillon",
@@ -4984,14 +4864,6 @@
     "language": "Punjabi",
     "youtube_url": "https://www.youtube.com/watch?v=hGsVLXnFgbA",
     "thumbnail_url": "https://img.youtube.com/vi/hGsVLXnFgbA/mqdefault.jpg"
-  },
-  {
-    "id": 625,
-    "title": "Tu Meri Rani",
-    "artist": "Guru Randhawa",
-    "language": "Punjabi",
-    "youtube_url": "https://www.youtube.com/watch?v=lwMaqwGSfJo",
-    "thumbnail_url": "https://img.youtube.com/vi/lwMaqwGSfJo/mqdefault.jpg"
   },
   {
     "id": 626,
@@ -5128,5 +5000,50 @@
     "language": "Punjabi",
     "youtube_url": "https://www.youtube.com/watch?v=b0_6qFjaUk4",
     "thumbnail_url": "https://img.youtube.com/vi/b0_6qFjaUk4/mqdefault.jpg"
+  },
+  {
+    "title": "Tera Mera Rishta Continues",
+    "artist": "Mithoon,Mustafa Zahid,Pritam,Saaj Bhatt,Sayeed Quadri,Subodhh Sharma",
+    "language": "Hindi",
+    "audio_url": "https://pagalworld.is/Tera%20Mera%20Rishta%20Continues%20(Film%20Ballad)%20[From%20%26quot%3BAwarapan%202%26quot%3B]%20-%20Tera%20Mera%20Rishta%20Continues%20(Film%20Ballad)%20(From%20Awarapan%202)%20(320%20kbps)%20-%2026656.mp3",
+    "thumbnail_url": "https://pagalworld.is/wp-content/uploads/2026/08/Tera-Mera-Rishta-Continues-Film-Ballad-From-Awarapan-2-Hindi-2026-20260806110337-500x500.jpg",
+    "youtube_url": "",
+    "id": 627
+  },
+  {
+    "title": "Aankhon Se Tune 2.0",
+    "artist": "Dev Negi,Jatin-Lalit,Lijo George,Palak Muchhal",
+    "language": "Bollywood",
+    "audio_url": "https://pagalworld.is/Aankhon%20Se%20Tune%202.0%20(From%20%26quot%3BBhai%20Tera%20Star%20Hai%26quot%3B)%20-%20Aankhon%20Se%20Tune%202.0%20(From%20Bhai%20Tera%20Star%20Hai)%20(320%20kbps)%20-%2026410.mp3",
+    "thumbnail_url": "https://pagalworld.is/wp-content/uploads/2026/07/Aankhon-Se-Tune-2-0-From-Bhai-Tera-Star-Hai-Hindi-2026-20260722193831-500x500.jpg",
+    "youtube_url": "",
+    "id": 628
+  },
+  {
+    "title": "Madhosh",
+    "artist": "Arslan Nizami,Faheem Abdullah,Siddharth Basrur,Tanishk Bagchi",
+    "language": "Bollywood",
+    "audio_url": "https://pagalworld.is/Madhosh%20(From%20%26quot%3BToxic%26quot%3B)%20-%20Madhosh%20(From%20Toxic)%20(320%20kbps)%20-%2026405.mp3",
+    "thumbnail_url": "https://pagalworld.is/wp-content/uploads/2026/07/Madhosh-From-Toxic-Hindi-2026-20260721112856-500x500.jpg",
+    "youtube_url": "",
+    "id": 629
+  },
+  {
+    "title": "Dhal Jaun Main by Arijit Singh",
+    "artist": "Aakanksha Sharma,Arijit Singh",
+    "language": "Hindi",
+    "audio_url": "https://pagalworld.is/Dhal%20Jaun%20Main%20by%20Arijit%20Singh%20-%20Rustom%20(320%20kbps).mp3",
+    "thumbnail_url": "https://pagalworld.is/wp-content/uploads/2026/05/Rustom-Hindi-2018-20250617070806-500x500.jpg",
+    "youtube_url": "",
+    "id": 630
+  },
+  {
+    "title": "Girl I Need You (feat. Arijit Singh)",
+    "artist": "Khushboo Grewal,Meet Bros,Roach Killa",
+    "language": "Hindi",
+    "audio_url": "https://pagalworld.is/Girl%20I%20Need%20You%20(feat.%20Arijit%20Singh)%20-%20Baaghi%20(320%20kbps).mp3",
+    "thumbnail_url": "https://pagalworld.is/wp-content/uploads/2026/05/Baaghi-Hindi-2016-20220420171003-500x500.jpg",
+    "youtube_url": "",
+    "id": 631
   }
 ]

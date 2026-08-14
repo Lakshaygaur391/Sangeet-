@@ -22,6 +22,9 @@ const normalizeSongRecord = (song = {}) => {
     title,
     artist,
     language,
+    audio_url: song.audio_url || "",
+    youtube_url: song.youtube_url || "",
+    thumbnail_url: song.thumbnail_url || "",
   };
 };
 
@@ -47,6 +50,7 @@ const dedupeSongs = (songs = []) => {
       ...existing,
       ...normalized,
       image: existing.image || normalized.image,
+      audio_url: existing.audio_url || normalized.audio_url || "",
       youtube_url: existing.youtube_url || normalized.youtube_url || "",
       thumbnail_url: existing.thumbnail_url || normalized.thumbnail_url || "",
     });
@@ -55,8 +59,15 @@ const dedupeSongs = (songs = []) => {
   return Array.from(seen.values());
 };
 
+const mongoUri = process.env.MONGO_URI || process.env.Mongo_URI;
+
+if (!mongoUri) {
+  console.error("❌ MONGO_URI is missing from backend/.env");
+  process.exit(1);
+}
+
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(mongoUri)
   .then(async () => {
     const rawData = fs.readFileSync("./data/songs.json", "utf8");
     const songs = JSON.parse(rawData);
@@ -71,7 +82,7 @@ mongoose
     await Song.insertMany(cleanedSongs);
 
     console.log(`✅ ${cleanedSongs.length} unique songs imported successfully!`);
-    process.exit();
+    process.exit(0);
   })
   .catch((err) => {
     console.error("❌ Error importing songs:", err);
