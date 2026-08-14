@@ -12,7 +12,7 @@
     "build": "npm --prefix frontend run build && node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true}); fs.cpSync('frontend/dist', 'dist', {recursive:true});\"",
     "dev": "npm --prefix frontend run dev",
     "lint": "npm --prefix frontend run lint",
-    "start": "npm --prefix backend start",
+    "start": "node backend/server.js",
     "test": "npm --prefix frontend run lint && npm --prefix backend test"
   },
   "keywords": [

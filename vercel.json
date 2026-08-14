@@ -9,7 +9,7 @@
     },
     {
       "source": "/api/(.*)",
-      "destination": "/backend/app.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
