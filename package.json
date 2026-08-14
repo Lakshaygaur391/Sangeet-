@@ -1,0 +1,26 @@
+{
+  "name": "sangeet-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sangeet - Modern Music Streaming Platform",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "start": "npm --prefix backend start",
+    "test": "npm --prefix frontend run lint && npm --prefix backend test"
+  },
+  "keywords": [
+    "music",
+    "streaming",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "Lakshay Gaur",
+  "license": "ISC"
+}
