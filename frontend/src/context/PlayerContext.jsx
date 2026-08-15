@@ -9,7 +9,6 @@ export const PlayerProvider = ({ children }) => {
   const [currentSong, setCurrentSong] = useState(null);
   const [songList, setSongList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [shuffle, setShuffle] = useState(false);
@@ -120,8 +119,6 @@ export const PlayerProvider = ({ children }) => {
       setSongList,
       currentIndex,
       setCurrentIndex,
-      searchQuery,
-      setSearchQuery,
       isPlaying,
       setIsPlaying,
       shuffle,
@@ -153,7 +150,6 @@ export const PlayerProvider = ({ children }) => {
       currentSong,
       songList,
       currentIndex,
-      searchQuery,
       isPlaying,
       shuffle,
       repeatMode,

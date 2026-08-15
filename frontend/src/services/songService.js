@@ -30,6 +30,14 @@ function langToSlug(lang) {
   return LANG_TO_SLUG[key] || key.replace(/\s+/g, "-");
 }
 
+const clientSearchCache = new Map();
+const MAX_CLIENT_CACHE_ENTRIES = 120;
+
+export function getCachedSearchResults(query) {
+  const key = (query || "").trim().toLowerCase();
+  return clientSearchCache.get(key) || null;
+}
+
 const songService = {
   /** Fetch all songs (full list, no pagination) */
   getAll: async () => withAudio(await safeRequest(api.get("/api/songs"), [])),
@@ -41,8 +49,32 @@ const songService = {
     return { ...res, songs: withAudio(res.songs) };
   },
 
-  search: async (query) =>
-    withAudio(await safeRequest(api.get("/api/search", { params: { q: query } }), [])),
+  search: async (query, signal) => {
+    const cleanQuery = (query || "").trim();
+    if (!cleanQuery) return [];
+    const cacheKey = cleanQuery.toLowerCase();
+
+    if (clientSearchCache.has(cacheKey)) {
+      return clientSearchCache.get(cacheKey);
+    }
+
+    const res = await safeRequest(
+      api.get("/api/search", { params: { q: cleanQuery }, signal }),
+      null
+    );
+
+    if (res === null) {
+      return null;
+    }
+
+    const songs = withAudio(res);
+    if (clientSearchCache.size >= MAX_CLIENT_CACHE_ENTRIES) {
+      const firstKey = clientSearchCache.keys().next().value;
+      if (firstKey) clientSearchCache.delete(firstKey);
+    }
+    clientSearchCache.set(cacheKey, songs);
+    return songs;
+  },
 
   /** Real-time on-demand scraping of a category page (/category/<name>/page/<page>/) */
   scrapeCategoryPage: async (category, page = 1) => {

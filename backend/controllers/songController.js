@@ -3,6 +3,27 @@ import Song from "../models/Song.js";
 import { scrapeCategoryPage } from "../services/scraperService.js";
 
 const youtubeCache = new Map();
+const searchCache = new Map();
+const SEARCH_CACHE_TTL = 3 * 60 * 1000; // 3 minutes TTL
+const MAX_SEARCH_CACHE_SIZE = 250;
+
+function getCachedSearch(key) {
+  const item = searchCache.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiry) {
+    searchCache.delete(key);
+    return null;
+  }
+  return item.data;
+}
+
+function setCachedSearch(key, data) {
+  if (searchCache.size >= MAX_SEARCH_CACHE_SIZE) {
+    const firstKey = searchCache.keys().next().value;
+    if (firstKey) searchCache.delete(firstKey);
+  }
+  searchCache.set(key, { data, expiry: Date.now() + SEARCH_CACHE_TTL });
+}
 
 const normalizeQuery = (value = "") =>
   value
@@ -353,19 +374,42 @@ export const searchSongs = async (req, res) => {
       return res.json([]);
     }
 
-    const safeRegex = new RegExp(rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const cacheKey = rawQuery.toLowerCase();
+    const cached = getCachedSearch(cacheKey);
+    if (cached) {
+      res.setHeader("Cache-Control", "public, max-age=120");
+      return res.json(cached);
+    }
 
-    const matchedSongs = await Song.find({
-      audio_url: { $exists: true, $ne: "" },
-      $or: [
-        { title: safeRegex },
-        { artist: safeRegex },
-        { language: safeRegex },
-      ],
-    }).lean();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 60, 100);
+    const escaped = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const safeRegex = new RegExp(escaped, "i");
+    const prefixRegex = new RegExp(`^${escaped}`, "i");
 
-    const deduped = dedupeSongs(matchedSongs);
-    res.json(deduped);
+    // Fetch prefix matches first (fastest and most relevant), then substring matches
+    const [prefixMatches, substringMatches] = await Promise.all([
+      Song.find({
+        audio_url: { $exists: true, $ne: "" },
+        $or: [{ title: prefixRegex }, { artist: prefixRegex }],
+      })
+        .select("title artist language audio_url thumbnail_url youtube_url")
+        .limit(limit)
+        .lean(),
+      Song.find({
+        audio_url: { $exists: true, $ne: "" },
+        $or: [{ title: safeRegex }, { artist: safeRegex }, { language: safeRegex }],
+      })
+        .select("title artist language audio_url thumbnail_url youtube_url")
+        .limit(limit)
+        .lean(),
+    ]);
+
+    const combined = [...prefixMatches, ...substringMatches];
+    const deduped = dedupeSongs(combined).slice(0, limit);
+
+    setCachedSearch(cacheKey, deduped);
+    res.setHeader("Cache-Control", "public, max-age=120");
+    return res.json(deduped);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
