@@ -272,13 +272,6 @@ const Home = () => {
             const remaining = region.songs.length - visible;
             const isScraping = regionScraping[region.lang] || false;
             const noMorePages = regionHasMore[region.lang] === false;
-            const nextPageNum = regionPage[region.lang] ?? 2;
-
-            // When local DB songs are exhausted, show the live scrape action label
-            let buttonLabel = "Load More";
-            if (remaining <= 0) {
-              buttonLabel = `Load from Website · Page ${nextPageNum}`;
-            }
 
             return (
               <div key={region.lang}>
@@ -292,8 +285,8 @@ const Home = () => {
                 <LoadMoreButton
                   onClick={() => loadMoreRegion(region.lang)}
                   loading={isScraping}
-                  disabled={noMorePages && remaining <= 0}
-                  label={isScraping ? `Fetching ${region.lang} Page ${nextPageNum}…` : buttonLabel}
+                  disabled={!isScraping && noMorePages && remaining <= 0}
+                  label={isScraping ? "Loading..." : "Load More"}
                 />
               </div>
             );
