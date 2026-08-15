@@ -1,3 +1,4 @@
+// Sangeet API server — includes /api/scrape/category/:category route
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import app from "./app.js";
