@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "import": "node importdata.js",
     "populate": "node scripts/populate_all_categories.js",
+    "dedupe": "node scripts/dedupe_database.js",
     "test": "node -e \"console.log('Backend check passed')\""
   },
   "keywords": [],
