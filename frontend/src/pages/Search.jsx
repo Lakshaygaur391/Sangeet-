@@ -14,7 +14,6 @@ import songService from "../services/songService";
 import { normalizeSong, scoreSongMatch, avatarFor } from "../lib/media";
 
 const RECENT_SEARCHES_KEY = "sangeet_recent_searches";
-const LANGUAGES = ["Hindi", "Punjabi", "Haryanvi", "Bhojpuri", "English", "Tamil", "Telugu", "Marathi", "Kannada", "Malayalam"];
 const LANGUAGES = [
   "Hindi",
   "Punjabi",
@@ -23,6 +22,9 @@ const LANGUAGES = [
   "English",
   "Tamil",
   "Telugu",
+  "Marathi",
+  "Kannada",
+  "Malayalam",
 ];
 
 function loadRecentSearches() {
@@ -36,8 +38,6 @@ function loadRecentSearches() {
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { searchQuery, setSearchQuery, playSong } = usePlayer();
-  const { songList, setSongList, searchQuery, setSearchQuery, playSong } =
-    usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
@@ -186,16 +186,6 @@ const Search = () => {
 
     return Array.from(artistMap.values()).slice(0, 8);
   }, [catalog, apiSearchResults, debouncedQuery]);
-    const names = [...new Set(songs.map((s) => s.artist).filter(Boolean))];
-    return names
-      .filter((n) => n.toLowerCase().includes(q))
-      .slice(0, 8)
-      .map((name) => ({
-        name,
-        image: avatarFor(name),
-        songs: songs.filter((s) => s.artist === name),
-      }));
-  }, [songs, debouncedQuery]);
 
   const languageResults = useMemo(() => {
     if (!debouncedQuery) return [];
