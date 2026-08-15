@@ -9,7 +9,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import songService from "../services/songService";
-import { normalizeSong, avatarFor } from "../lib/media";
+import { normalizeSong, avatarFor, getArtistImage } from "../lib/media";
 
 const Artist = () => {
   const { name } = useParams();
@@ -53,13 +53,26 @@ const Artist = () => {
     [songs, decodedName]
   );
 
+  const artistCover = useMemo(() => {
+    const songWithThumb = artistSongs.find((s) => s.thumbnail_url && !s.thumbnail_url.includes("ui-avatars.com"));
+    return getArtistImage(decodedName, songWithThumb?.thumbnail_url);
+  }, [artistSongs, decodedName]);
+
   const relatedArtists = useMemo(() => {
     const languages = new Set(artistSongs.map((s) => s.language));
     const names = new Set();
+    const list = [];
     songs.forEach((s) => {
-      if (s.artist !== decodedName && languages.has(s.language)) names.add(s.artist);
+      if (s.artist !== decodedName && languages.has(s.language) && !names.has(s.artist)) {
+        names.add(s.artist);
+        list.push({
+          name: s.artist,
+          image: getArtistImage(s.artist, s.thumbnail_url),
+          songs: songs.filter((song) => song.artist === s.artist),
+        });
+      }
     });
-    return [...names].slice(0, 8).map((n) => ({ name: n, image: avatarFor(n) }));
+    return list.slice(0, 8);
   }, [songs, artistSongs, decodedName]);
 
   if (status === "loading") {
@@ -81,21 +94,32 @@ const Artist = () => {
 
   return (
     <div className="space-y-6">
-      <header className="relative overflow-hidden rounded-3xl border border-white/10">
-        <img src={avatarFor(decodedName, "1e1e1e&color=eab34a")} alt="" className="h-56 w-full object-cover blur-sm brightness-50 md:h-72" />
-        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/90 via-black/30 to-transparent p-5 md:p-8">
-          <div className="flex items-end gap-5">
-            <img src={avatarFor(decodedName, "eab34a&color=000")} alt={decodedName} className="h-24 w-24 shrink-0 rounded-full border-4 border-black object-cover md:h-32 md:w-32" />
+      <header className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#121214] shadow-2xl">
+        <img
+          src={artistCover}
+          alt=""
+          className="h-60 w-full object-cover scale-105 blur-md brightness-[0.35] transition-all duration-700 md:h-80"
+        />
+        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-[#0f0f11] via-[#0f0f11]/60 to-transparent p-5 md:p-8">
+          <div className="flex items-end gap-5 md:gap-6">
+            <div className="relative shrink-0">
+              <img
+                src={artistCover}
+                alt={decodedName}
+                className="h-28 w-28 rounded-full border-4 border-[#0f0f11] object-cover shadow-2xl md:h-36 md:w-36 ring-2 ring-amber-400/40"
+              />
+            </div>
             <div>
-              <p className="text-meta flex items-center gap-1 text-amber-300">
-                <IoCheckmarkCircle /> Verified Artist
+              <p className="text-meta flex items-center gap-1.5 text-amber-300 font-medium">
+                <IoCheckmarkCircle className="text-base" /> Verified Artist
               </p>
-              <h1 className="text-display mt-1 text-white">{decodedName}</h1>
-              <p className="text-body mt-1 text-white/60">{artistSongs.length} songs</p>
+              <h1 className="text-display mt-1 text-white font-bold tracking-tight text-3xl md:text-5xl">{decodedName}</h1>
+              <p className="text-body mt-2 text-white/70 font-medium">{artistSongs.length} tracks available</p>
             </div>
           </div>
         </div>
       </header>
+
 
       <div className="flex items-center gap-3">
         <button

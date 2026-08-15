@@ -52,6 +52,45 @@ export function scoreSongMatch(song, query) {
   return score;
 }
 
+const KNOWN_ARTIST_IMAGES = {
+  "arijit singh": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80",
+  "diljit dosanjh": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80",
+  "badshah": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
+  "shreya ghoshal": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500&auto=format&fit=crop&q=80",
+  "neha kakkar": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=500&auto=format&fit=crop&q=80",
+  "guru randhawa": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&auto=format&fit=crop&q=80",
+  "ap dhillon": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=500&auto=format&fit=crop&q=80",
+  "sidhu moose wala": "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=500&auto=format&fit=crop&q=80",
+  "karan aujla": "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?w=500&auto=format&fit=crop&q=80",
+  "yo yo honey singh": "https://images.unsplash.com/photo-1520523839898-5071282543e2?w=500&auto=format&fit=crop&q=80",
+  "masoom sharma": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&auto=format&fit=crop&q=80",
+  "khasa aala chahar": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500&auto=format&fit=crop&q=80",
+  "renuka panwar": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=500&auto=format&fit=crop&q=80",
+  "r nait": "https://images.unsplash.com/photo-1571266028243-d220c6a7a2d0?w=500&auto=format&fit=crop&q=80",
+  "sumit goswami": "https://images.unsplash.com/photo-1598387993441-a364f854ceba?w=500&auto=format&fit=crop&q=80",
+  "pritam": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80",
+  "b praak": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80",
+  "vishal mishra": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
+};
+
+export function getArtistImage(name = "", fallbackThumbnail = "") {
+  const cleanName = String(name || "").trim().toLowerCase();
+  if (KNOWN_ARTIST_IMAGES[cleanName]) {
+    return KNOWN_ARTIST_IMAGES[cleanName];
+  }
+  // Check if any partial known artist name matches
+  for (const [key, url] of Object.entries(KNOWN_ARTIST_IMAGES)) {
+    if (cleanName.includes(key)) {
+      return url;
+    }
+  }
+  if (fallbackThumbnail && !fallbackThumbnail.includes("ui-avatars.com")) {
+    return fallbackThumbnail;
+  }
+  return avatarFor(name, "1c1c1e&color=eab34a");
+}
+
 export function avatarFor(name, bg = "random") {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "?")}&background=${bg}`;
 }
+
