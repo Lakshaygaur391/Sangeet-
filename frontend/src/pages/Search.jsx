@@ -15,6 +15,15 @@ import { normalizeSong, scoreSongMatch, avatarFor } from "../lib/media";
 
 const RECENT_SEARCHES_KEY = "sangeet_recent_searches";
 const LANGUAGES = ["Hindi", "Punjabi", "Haryanvi", "Bhojpuri", "English", "Tamil", "Telugu", "Marathi", "Kannada", "Malayalam"];
+const LANGUAGES = [
+  "Hindi",
+  "Punjabi",
+  "Haryanvi",
+  "Bhojpuri",
+  "English",
+  "Tamil",
+  "Telugu",
+];
 
 function loadRecentSearches() {
   try {
@@ -27,6 +36,8 @@ function loadRecentSearches() {
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { searchQuery, setSearchQuery, playSong } = usePlayer();
+  const { songList, setSongList, searchQuery, setSearchQuery, playSong } =
+    usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
@@ -102,7 +113,10 @@ const Search = () => {
   const saveRecentSearch = useCallback((q) => {
     if (!q) return;
     setRecentSearches((prev) => {
-      const next = [q, ...prev.filter((s) => s.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+      const next = [
+        q,
+        ...prev.filter((s) => s.toLowerCase() !== q.toLowerCase()),
+      ].slice(0, 8);
       localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
       return next;
     });
@@ -172,6 +186,16 @@ const Search = () => {
 
     return Array.from(artistMap.values()).slice(0, 8);
   }, [catalog, apiSearchResults, debouncedQuery]);
+    const names = [...new Set(songs.map((s) => s.artist).filter(Boolean))];
+    return names
+      .filter((n) => n.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map((name) => ({
+        name,
+        image: avatarFor(name),
+        songs: songs.filter((s) => s.artist === name),
+      }));
+  }, [songs, debouncedQuery]);
 
   const languageResults = useMemo(() => {
     if (!debouncedQuery) return [];
@@ -180,12 +204,16 @@ const Search = () => {
   }, [debouncedQuery]);
 
   const hasQuery = Boolean(debouncedQuery);
-  const hasResults = songResults.length > 0 || artistResults.length > 0 || languageResults.length > 0;
+  const hasResults =
+    songResults.length > 0 ||
+    artistResults.length > 0 ||
+    languageResults.length > 0;
 
   return (
     <div className="space-y-5">
       <div className="relative">
-        <div className="flex items-center rounded-full border border-white/10 bg-[#1c1c1e] px-4 py-3 focus-within:border-amber-500/60">
+        <div className="flex items-center rounded-full border border-white/10 bg-[#1c1c1e] px-4 py-3 shadow-[0_0_0_2px_rgba(255,255,255,0.06)] transition focus-within:border-amber-500/60 focus-within:shadow-[0_0_0_2px_rgba(234,179,74,0.35)]">
+          {" "}
           <IoIosSearch className="mr-2 text-xl text-white/60" />
           <input
             autoFocus
@@ -197,7 +225,12 @@ const Search = () => {
             className="w-full bg-transparent text-white placeholder:text-white/40 focus:outline-none"
           />
           {searchQuery && (
-            <button type="button" aria-label="Clear search" onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white">
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchQuery("")}
+              className="text-white/50 hover:text-white"
+            >
               <IoClose className="text-xl" />
             </button>
           )}
@@ -209,13 +242,21 @@ const Search = () => {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-h2 text-white">Recent Searches</h2>
             {recentSearches.length > 0 && (
-              <button type="button" onClick={clearRecentSearches} className="flex items-center gap-1 text-xs font-medium text-white/40 hover:text-rose-300">
+              <button
+                type="button"
+                onClick={clearRecentSearches}
+                className="flex items-center gap-1 text-xs font-medium text-white/40 hover:text-rose-300"
+              >
                 <IoTrashOutline /> Clear
               </button>
             )}
           </div>
           {recentSearches.length === 0 ? (
-            <EmptyState icon={<IoTimeOutline />} title="No recent searches" description="Songs and artists you look up will show up here." />
+            <EmptyState
+              icon={<IoTimeOutline />}
+              title="No recent searches"
+              description="Songs and artists you look up will show up here."
+            />
           ) : (
             <div className="flex flex-wrap gap-2">
               {recentSearches.map((q) => (
@@ -249,7 +290,10 @@ const Search = () => {
 
       {hasQuery && status === "loading" && <SkeletonGrid count={8} />}
       {hasQuery && status === "error" && (
-        <EmptyState title="Search is unavailable" description="Couldn't reach the server. Check your connection and try again." />
+        <EmptyState
+          title="Search is unavailable"
+          description="Couldn't reach the server. Check your connection and try again."
+        />
       )}
 
       {hasQuery && status === "ready" && !hasResults && (
@@ -259,7 +303,12 @@ const Search = () => {
           action={
             <div className="flex flex-wrap justify-center gap-2">
               {LANGUAGES.slice(0, 4).map((l) => (
-                <button key={l} type="button" onClick={() => setSearchQuery(l)} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setSearchQuery(l)}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                >
                   {l}
                 </button>
               ))}
@@ -275,7 +324,10 @@ const Search = () => {
               <h2 className="text-h2 mb-2 text-white">Languages</h2>
               <div className="flex flex-wrap gap-2">
                 {languageResults.map((l) => (
-                  <span key={l} className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3.5 py-1.5 text-sm text-amber-200">
+                  <span
+                    key={l}
+                    className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3.5 py-1.5 text-sm text-amber-200"
+                  >
                     {l}
                   </span>
                 ))}
@@ -288,7 +340,13 @@ const Search = () => {
               <h2 className="text-h2 mb-3 text-white">Songs</h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
                 {songResults.map((song, i) => (
-                  <SongCard key={song._id || i} song={song} queue={songResults} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+                  <SongCard
+                    key={song._id || i}
+                    song={song}
+                    queue={songResults}
+                    index={i}
+                    onAddToPlaylist={setAddToPlaylistSong}
+                  />
                 ))}
               </div>
             </div>
@@ -299,10 +357,17 @@ const Search = () => {
               <h2 className="text-h2 mb-3 text-white">Artists</h2>
               <div className="scrollbar-none flex gap-3 overflow-x-auto md:gap-4">
                 {artistResults.map((artist) => (
-                  <ArtistCard key={artist.name} artist={artist} onPlay={() => {
-                    if (!isAuthenticated) { openAuthPrompt("default"); return; }
-                    playSong(artist.songs[0], artist.songs, 0);
-                  }} />
+                  <ArtistCard
+                    key={artist.name}
+                    artist={artist}
+                    onPlay={() => {
+                      if (!isAuthenticated) {
+                        openAuthPrompt("default");
+                        return;
+                      }
+                      playSong(artist.songs[0], artist.songs, 0);
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -310,7 +375,10 @@ const Search = () => {
         </div>
       )}
 
-      <AddToPlaylistModal song={addToPlaylistSong} onClose={() => setAddToPlaylistSong(null)} />
+      <AddToPlaylistModal
+        song={addToPlaylistSong}
+        onClose={() => setAddToPlaylistSong(null)}
+      />
     </div>
   );
 };
