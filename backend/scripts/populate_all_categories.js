@@ -1,11 +1,17 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import path from "path";
+import { fileURLToPath } from "url";
 import { scrapeCategoryPage } from "../services/scraperService.js";
 import Song from "../models/Song.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, "../.env") });
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || process.env.Mongo_URI || "mongodb://localhost:27017/sangeet";
+const MONGO_URI = process.env.MONGO_URI || process.env.Mongo_URI;
 
 // All supported categories on PagalWorld
 const CATEGORIES = [
