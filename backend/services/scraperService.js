@@ -11,11 +11,12 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = "https://pagalworld.is";
 
-// Reuse TCP/TLS connections to minimize handshake latency across multiple requests
+// Ultra-fast HTTP agent with 60 sockets and persistent keepAlive connections
 const httpsAgent = new https.Agent({
   keepAlive: true,
-  maxSockets: 40,
-  keepAliveMsecs: 30000,
+  maxSockets: 60,
+  maxFreeSockets: 30,
+  keepAliveMsecs: 60000,
 });
 
 const HEADERS = {
@@ -23,6 +24,7 @@ const HEADERS = {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
 };
 
 const CATEGORY_MAP = {
@@ -48,7 +50,6 @@ function sanitizeText(text) {
 
 /**
  * Extract only the clean singer name from a song detail page.
- * Uses 3-tier strategy: table row > element text > meta description.
  */
 function extractCleanArtist($, mainContent) {
   let artist = "";
@@ -62,7 +63,7 @@ function extractCleanArtist($, mainContent) {
         const rawArtist = sanitizeText($(cells[1]).text());
         if (rawArtist && rawArtist.length < 200) {
           artist = rawArtist;
-          return false; // break
+          return false;
         }
       }
     }
@@ -106,7 +107,6 @@ function encodeAudioUrl(rawUrl) {
 
 /**
  * Fetch and extract details of a single song detail page.
- * Returns { title, artist, language, audio_url, thumbnail_url, youtube_url } or null.
  */
 export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi") {
   if (!songPageUrl || (!songPageUrl.startsWith("http://") && !songPageUrl.startsWith("https://"))) {
@@ -116,7 +116,7 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
     const res = await axios.get(songPageUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 8000,
+      timeout: 5000,
     });
     if (res.status !== 200 || !res.data) return null;
 
@@ -211,7 +211,7 @@ export async function getSongsFromAlbum(albumUrl) {
     const res = await axios.get(albumUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 8000,
+      timeout: 5000,
     });
     if (res.status !== 200 || !res.data) return songLinks;
     const $ = cheerio.load(res.data);
@@ -233,9 +233,10 @@ export async function getSongsFromAlbum(albumUrl) {
  * Scrape a specific category page in real-time and save new songs to DB + songs.json.
  *
  * Highly optimized with:
- *   1. Connection pooling (httpsAgent with keepAlive)
- *   2. Early-exit album collection (stops as soon as target songs are gathered)
- *   3. High concurrency (16 parallel detail fetches)
+ *   1. Connection pooling (60 sockets, gzip/br compression, keepAlive)
+ *   2. Parallel album crawling (up to 15 albums at once with immediate collection)
+ *   3. High detail concurrency (24 parallel requests)
+ *   4. High-performance single-roundtrip MongoDB bulkWrite
  */
 export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
   const catKey = (categoryKey || "punjabi").toLowerCase().trim();
@@ -254,7 +255,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     const res = await axios.get(pageUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 10000,
+      timeout: 6000,
     });
     if (res.status !== 200 || !res.data) {
       return { success: false, message: `HTTP ${res.status}`, songs: [], hasMore: false };
@@ -288,50 +289,42 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
-  // ── Step 2: Album pages → song page links (batched with early exit) ───────
+  // ── Step 2: Parallel Album Fetching (up to 15 albums at once) ──────────────
   const seenSongUrls = new Set();
   const allSongPageUrls = [];
-  const ALBUM_CHUNK_SIZE = 10;
+  const targetAlbums = albumUrls.slice(0, 15);
 
-  for (let i = 0; i < albumUrls.length; i += ALBUM_CHUNK_SIZE) {
-    const chunk = albumUrls.slice(i, i + ALBUM_CHUNK_SIZE);
-    const albumResults = await Promise.allSettled(
-      chunk.map(async (albumUrl) => {
-        try {
-          const r = await axios.get(albumUrl, {
-            headers: HEADERS,
-            httpsAgent,
-            timeout: 8000,
-          });
-          if (r.status !== 200 || !r.data) return [];
-          const $ = cheerio.load(r.data);
-          const links = [];
-          $("a[href]").each((_, el) => {
-            const href = $(el).attr("href") || "";
-            if (href.includes("/song/") && href.includes("-mp3-download")) {
-              const full = new URL(href, BASE_URL).toString();
-              if (!seenSongUrls.has(full)) {
-                seenSongUrls.add(full);
-                links.push(full);
-              }
+  const albumResults = await Promise.allSettled(
+    targetAlbums.map(async (albumUrl) => {
+      try {
+        const r = await axios.get(albumUrl, {
+          headers: HEADERS,
+          httpsAgent,
+          timeout: 5000,
+        });
+        if (r.status !== 200 || !r.data) return [];
+        const $ = cheerio.load(r.data);
+        const links = [];
+        $("a[href]").each((_, el) => {
+          const href = $(el).attr("href") || "";
+          if (href.includes("/song/") && href.includes("-mp3-download")) {
+            const full = new URL(href, BASE_URL).toString();
+            if (!seenSongUrls.has(full)) {
+              seenSongUrls.add(full);
+              links.push(full);
             }
-          });
-          return links;
-        } catch {
-          return [];
-        }
-      })
-    );
-
-    for (const r of albumResults) {
-      if (r.status === "fulfilled" && Array.isArray(r.value)) {
-        allSongPageUrls.push(...r.value);
+          }
+        });
+        return links;
+      } catch {
+        return [];
       }
-    }
+    })
+  );
 
-    // Stop fetching additional albums once we have accumulated enough potential songs
-    if (allSongPageUrls.length >= 60) {
-      break;
+  for (const r of albumResults) {
+    if (r.status === "fulfilled" && Array.isArray(r.value)) {
+      allSongPageUrls.push(...r.value);
     }
   }
 
@@ -339,7 +332,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
-  // ── Step 3: Skip songs already in DB ─────────────────────────────────────
+  // ── Step 3: Fast DB Check to Skip Existing Songs ─────────────────────────
   const existingAudioUrls = new Set();
   try {
     const docs = await Song.find({ language: langLabel }, { audio_url: 1, _id: 0 }).lean();
@@ -350,8 +343,8 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     /* ignore */
   }
 
-  // ── Step 4: Fetch song detail pages (high concurrency = 16) ──────────────
-  const CONCURRENCY = 16;
+  // ── Step 4: High-Concurrency Detail Extraction (Concurrency = 24) ────────
+  const CONCURRENCY = 24;
   const extractedSongs = [];
   let idx = 0;
 
@@ -377,29 +370,40 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
-  // ── Step 5: Upsert to MongoDB ─────────────────────────────────────────────
+  // ── Step 5: Fast Bulk Upsert to MongoDB (Single Roundtrip) ────────────────
   const savedSongs = [];
-  for (const song of extractedSongs) {
-    try {
-      const doc = await Song.findOneAndUpdate(
-        { audio_url: song.audio_url },
-        {
-          title: song.title,
-          artist: song.artist,
-          language: song.language,
-          audio_url: song.audio_url,
-          thumbnail_url: song.thumbnail_url,
-          youtube_url: "",
+  try {
+    const bulkOps = extractedSongs.map((song) => ({
+      updateOne: {
+        filter: { audio_url: song.audio_url },
+        update: {
+          $set: {
+            title: song.title,
+            artist: song.artist,
+            language: song.language,
+            audio_url: song.audio_url,
+            thumbnail_url: song.thumbnail_url,
+            youtube_url: "",
+          },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      ).lean();
-      savedSongs.push(doc);
-    } catch {
-      /* continue */
+        upsert: true,
+      },
+    }));
+
+    if (bulkOps.length > 0) {
+      await Song.bulkWrite(bulkOps, { ordered: false });
     }
+
+    // Retrieve saved documents
+    const savedDocs = await Song.find({
+      audio_url: { $in: extractedSongs.map((s) => s.audio_url) },
+    }).lean();
+    savedSongs.push(...savedDocs);
+  } catch {
+    savedSongs.push(...extractedSongs);
   }
 
-  // ── Step 6: Append to songs.json ─────────────────────────────────────────
+  // ── Step 6: Append to songs.json Asynchronously ───────────────────────────
   try {
     const songsJsonPath = path.join(__dirname, "../data/songs.json");
     if (fs.existsSync(songsJsonPath)) {
