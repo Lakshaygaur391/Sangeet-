@@ -1,5 +1,6 @@
 import axios from "axios";
 import Song from "../models/Song.js";
+import { scrapeCategoryPage } from "../services/scraperService.js";
 
 const youtubeCache = new Map();
 
@@ -52,37 +53,38 @@ export const stripRuntimeMediaFields = (song = {}) => {
 };
 
 export const dedupeSongs = (songs = []) => {
-  const seen = new Map();
+  const seenAudio = new Set();
+  const seenTitle = new Set();
+  const result = [];
 
   for (const song of songs) {
     const normalized = normalizeSongRecord(song);
-    const title = normalizeSongString(normalized.title || "").toLowerCase();
-    const artist = normalizeSongString(normalized.artist || "").toLowerCase();
-    const language = normalizeSongString(normalized.language || "").toLowerCase();
+    const titleKey = normalizeSongString(normalized.title || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const artistKey = normalizeSongString(normalized.artist || "")
+      .split(/[,&]/)[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const audioKey = (normalized.audio_url || "").trim().toLowerCase();
 
-    if (!title || !artist) continue;
+    if (!titleKey) continue;
 
-    const key = `${title}::${artist}::${language}`;
-    if (!seen.has(key)) {
-      seen.set(key, normalized);
-      continue;
+    // Deduplicate by audio_url if present
+    if (audioKey) {
+      if (seenAudio.has(audioKey)) continue;
+      seenAudio.add(audioKey);
     }
 
-    const existing = seen.get(key);
-    const next = {
-      ...existing,
-      ...normalized,
-    };
+    // Deduplicate by title + primary artist
+    const comboKey = `${titleKey}::${artistKey}`;
+    if (seenTitle.has(comboKey)) continue;
+    seenTitle.add(comboKey);
 
-    if (!existing.image && normalized.image) next.image = normalized.image;
-    if (!existing.audio_url && normalized.audio_url) next.audio_url = normalized.audio_url;
-    if (!existing.youtube_url && normalized.youtube_url) next.youtube_url = normalized.youtube_url;
-    if (!existing.thumbnail_url && normalized.thumbnail_url) next.thumbnail_url = normalized.thumbnail_url;
-
-    seen.set(key, next);
+    result.push(normalized);
   }
 
-  return Array.from(seen.values());
+  return result;
 };
 
 export const resolveYouTubeQuery = async (queryText) => {
@@ -203,9 +205,27 @@ export const enrichSong = async (song) => {
 
 export const getAllSongs = async (req, res) => {
   try {
+    const page = parseInt(req.query.page, 10) || 0;
+    const limit = parseInt(req.query.limit, 10) || 0;
+
     // Only return songs that have a direct MP3 audio_url so the player always works
-    const songs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
-    const normalizedSongs = dedupeSongs(songs);
+    const allSongs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
+    const normalizedSongs = dedupeSongs(allSongs);
+
+    // If pagination params are provided, paginate; otherwise return full list
+    if (page > 0 && limit > 0) {
+      const total = normalizedSongs.length;
+      const start = (page - 1) * limit;
+      const paginatedSongs = normalizedSongs.slice(start, start + limit);
+      return res.json({
+        songs: paginatedSongs,
+        total,
+        page,
+        limit,
+        hasMore: start + limit < total,
+      });
+    }
+
     res.json(normalizedSongs);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -215,9 +235,26 @@ export const getAllSongs = async (req, res) => {
 export const getSongsByLanguage = async (req, res) => {
   try {
     const language = req.params.language;
+    const page = parseInt(req.query.page, 10) || 0;
+    const limit = parseInt(req.query.limit, 10) || 0;
+
     // Only return songs that have a direct MP3 audio_url
-    const songs = await Song.find({ language, audio_url: { $exists: true, $ne: "" } }).lean();
-    const normalizedSongs = dedupeSongs(songs);
+    const allSongs = await Song.find({ language, audio_url: { $exists: true, $ne: "" } }).lean();
+    const normalizedSongs = dedupeSongs(allSongs);
+
+    if (page > 0 && limit > 0) {
+      const total = normalizedSongs.length;
+      const start = (page - 1) * limit;
+      const paginatedSongs = normalizedSongs.slice(start, start + limit);
+      return res.json({
+        songs: paginatedSongs,
+        total,
+        page,
+        limit,
+        hasMore: start + limit < total,
+      });
+    }
+
     res.json(normalizedSongs);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -295,5 +332,42 @@ export const searchYoutube = async (req, res) => {
   }
 
   return res.json(result);
+};
+
+export const scrapeCategorySongs = async (req, res) => {
+  try {
+    const category = req.params.category || req.query.category || req.body?.category || "punjabi";
+    const page = parseInt(req.query.page || req.body?.page, 10) || 1;
+
+    const result = await scrapeCategoryPage(category, page);
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message, songs: [] });
+  }
+};
+
+export const searchSongs = async (req, res) => {
+  try {
+    const rawQuery = String(req.query.q || req.query.query || "").trim();
+    if (!rawQuery) {
+      return res.json([]);
+    }
+
+    const safeRegex = new RegExp(rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+
+    const matchedSongs = await Song.find({
+      audio_url: { $exists: true, $ne: "" },
+      $or: [
+        { title: safeRegex },
+        { artist: safeRegex },
+        { language: safeRegex },
+      ],
+    }).lean();
+
+    const deduped = dedupeSongs(matchedSongs);
+    res.json(deduped);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 

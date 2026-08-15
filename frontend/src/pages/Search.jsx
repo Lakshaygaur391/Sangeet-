@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { IoIosSearch } from "react-icons/io";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
 import SongCard from "../components/song/SongCard";
@@ -13,7 +14,7 @@ import songService from "../services/songService";
 import { normalizeSong, scoreSongMatch, avatarFor } from "../lib/media";
 
 const RECENT_SEARCHES_KEY = "sangeet_recent_searches";
-const LANGUAGES = ["Hindi", "Punjabi", "Haryanvi", "Bhojpuri", "English", "Tamil", "Telugu"];
+const LANGUAGES = ["Hindi", "Punjabi", "Haryanvi", "Bhojpuri", "English", "Tamil", "Telugu", "Marathi", "Kannada", "Malayalam"];
 
 function loadRecentSearches() {
   try {
@@ -24,37 +25,79 @@ function loadRecentSearches() {
 }
 
 const Search = () => {
-  const { songList, setSongList, searchQuery, setSearchQuery, playSong } = usePlayer();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { searchQuery, setSearchQuery, playSong } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
+
+  const [catalog, setCatalog] = useState([]);
+  const [apiSearchResults, setApiSearchResults] = useState([]);
   const [status, setStatus] = useState("loading");
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
 
+  // Sync URL query param if present
+  useEffect(() => {
+    const urlQ = searchParams.get("q");
+    if (urlQ && urlQ !== searchQuery) {
+      setSearchQuery(urlQ);
+    }
+  }, [searchParams]);
+
+  // Load complete catalog independently of player active queue
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (songList.length > 0) return setStatus("ready");
       setStatus("loading");
       const songs = await songService.getAll();
       if (cancelled) return;
       if (songs === null) return setStatus("error");
-      setSongList(songs);
+      setCatalog(Array.isArray(songs) ? songs.map(normalizeSong) : []);
       setStatus("ready");
     }
     load();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounce the query before it drives filtering / recent-search saves.
+  // Debounce the query
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 250);
+    const t = setTimeout(() => {
+      const trimmed = searchQuery.trim();
+      setDebouncedQuery(trimmed);
+      if (trimmed) {
+        setSearchParams({ q: trimmed }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
+    }, 200);
     return () => clearTimeout(t);
-  }, [searchQuery]);
+  }, [searchQuery, setSearchParams]);
+
+  // Live backend search on debounced query
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setApiSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    async function fetchApiSearch() {
+      try {
+        const results = await songService.search(debouncedQuery);
+        if (!cancelled && Array.isArray(results)) {
+          setApiSearchResults(results.map(normalizeSong));
+        }
+      } catch {
+        if (!cancelled) setApiSearchResults([]);
+      }
+    }
+    fetchApiSearch();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery]);
 
   const saveRecentSearch = useCallback((q) => {
     if (!q) return;
@@ -76,25 +119,59 @@ const Search = () => {
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  const songs = useMemo(() => songList.map(normalizeSong), [songList]);
-
+  // Merge catalog search with API search results
   const songResults = useMemo(() => {
     if (!debouncedQuery) return [];
-    return songs
+    const seen = new Set();
+    const list = [];
+
+    // First, scored matches from full catalog
+    const scoredCatalog = catalog
       .map((s) => ({ ...s, score: scoreSongMatch(s, debouncedQuery) }))
       .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score);
-  }, [songs, debouncedQuery]);
+
+    for (const s of scoredCatalog) {
+      const key = (s.audio_url || s._id || s.title).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(s);
+      }
+    }
+
+    // Second, any additional API search matches
+    for (const s of apiSearchResults) {
+      const key = (s.audio_url || s._id || s.title).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(s);
+      }
+    }
+
+    return list;
+  }, [catalog, apiSearchResults, debouncedQuery]);
 
   const artistResults = useMemo(() => {
     if (!debouncedQuery) return [];
     const q = debouncedQuery.toLowerCase();
-    const names = [...new Set(songs.map((s) => s.artist).filter(Boolean))];
-    return names
-      .filter((n) => n.toLowerCase().includes(q))
-      .slice(0, 8)
-      .map((name) => ({ name, image: avatarFor(name), songs: songs.filter((s) => s.artist === name) }));
-  }, [songs, debouncedQuery]);
+    const allKnown = [...catalog, ...apiSearchResults];
+    const artistMap = new Map();
+
+    for (const s of allKnown) {
+      const name = (s.artist || "").trim();
+      if (!name || name === "Unknown Artist") continue;
+      const key = name.toLowerCase();
+      if (key.includes(q) && !artistMap.has(key)) {
+        artistMap.set(key, {
+          name,
+          image: avatarFor(name),
+          songs: allKnown.filter((song) => song.artist === name),
+        });
+      }
+    }
+
+    return Array.from(artistMap.values()).slice(0, 8);
+  }, [catalog, apiSearchResults, debouncedQuery]);
 
   const languageResults = useMemo(() => {
     if (!debouncedQuery) return [];

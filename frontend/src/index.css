@@ -120,6 +120,17 @@ body {
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { scrollbar-width: none; }
 
+.smooth-horizontal-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+.smooth-horizontal-scroll > * {
+  scroll-snap-align: start;
+}
+
 /* ===================== ANIMATIONS ===================== */
 @keyframes shimmer {
   0% { background-position: -400px 0; }

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Section from "../components/Section";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
+import LoadMoreButton from "../components/ui/LoadMoreButton";
 import { EmptyState } from "../components/ui/StatePanels";
 import { usePlayer } from "../context/PlayerContext";
 import { useLibrary } from "../context/LibraryContext";
@@ -28,14 +29,26 @@ const FEATURED_ARTISTS = [
 ];
 
 const GREETINGS = ["Welcome back", "Good to see you", "Ready to listen"];
+const PAGE_SIZE = 50; // songs revealed per Load More click
 
 const Home = () => {
-  const { songList, setSongList, playSong } = usePlayer();
+  const { playSong } = usePlayer();
   const { recentlyPlayed } = useLibrary();
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
   const [status, setStatus] = useState("loading");
+  const [rawSongs, setRawSongs] = useState([]);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
+
+  // Per-section visible count state
+  const [freshVisible, setFreshVisible] = useState(PAGE_SIZE);
+  const [trendingVisible, setTrendingVisible] = useState(PAGE_SIZE);
+  
+  // Regional visible count, live page tracker, and scraping indicators
+  const [regionVisible, setRegionVisible] = useState({});
+  const [regionPage, setRegionPage] = useState({});
+  const [regionScraping, setRegionScraping] = useState({});
+  const [regionHasMore, setRegionHasMore] = useState({});
 
   const greeting = useMemo(() => GREETINGS[new Date().getDate() % GREETINGS.length], []);
 
@@ -43,41 +56,136 @@ const Home = () => {
     let cancelled = false;
     async function load() {
       setStatus("loading");
-      const songs = await songService.getAll();
+      const fetchedSongs = await songService.getAll();
       if (cancelled) return;
-      if (songs === null) {
+      if (fetchedSongs === null) {
         setStatus("error");
         return;
       }
-      setSongList(songs);
+      setRawSongs(fetchedSongs);
       setStatus("ready");
     }
     load();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const songs = useMemo(() => songList.map(normalizeSong), [songList]);
+  // Strict deduplication ensures every container has unique songs
+  const songs = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    for (const raw of rawSongs) {
+      const s = normalizeSong(raw);
+      const audioKey = (s.audio_url || "").trim().toLowerCase();
+      const titleKey = (s.title || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const artistKey = (s.artist || "").trim().toLowerCase().split(/[,&]/)[0].replace(/[^a-z0-9]/g, "");
+      const key = audioKey || `${titleKey}::${artistKey}`;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(s);
+    }
+    return result;
+  }, [rawSongs]);
 
-  const byLanguage = (lang) =>
-    songs.filter((s) => {
-      const songLang = (s.language || "").trim().toLowerCase();
-      const target = lang.trim().toLowerCase();
-      return songLang === target;
-    });
+  const byLanguage = useCallback(
+    (lang) =>
+      songs.filter((s) => {
+        const songLang = (s.language || "").trim().toLowerCase();
+        const target = lang.trim().toLowerCase();
+        return songLang === target;
+      }),
+    [songs]
+  );
 
   const featured = songs[0];
-  const fresh = songs.slice(0, 12);
-  const trending = useMemo(() => [...songs].sort(() => 0.5 - Math.random()).slice(0, 12), [songs]);
+  const fresh = songs;
+  const trending = useMemo(() => [...songs].reverse(), [songs]);
+
   // Show language spotlights in priority order; only include those with songs
-  const regions = ["Punjabi", "Haryanvi", "Bollywood", "Hindi", "Bhojpuri", "Indipop", "English"].map((lang) => ({
+  const regions = [
+    "Punjabi",
+    "Haryanvi",
+    "Bollywood",
+    "Hindi",
+    "Indipop",
+    "Bhojpuri",
+    "Tamil",
+    "Telugu",
+    "Malayalam",
+    "Kannada",
+    "Marathi",
+    "English",
+    "Instagram viral song",
+  ].map((lang) => ({
     lang,
     songs: byLanguage(lang),
   })).filter((r) => r.songs.length > 0);
 
   const sectionStatus = status === "loading" ? "loading" : status === "error" ? "error" : songs.length === 0 ? "empty" : "ready";
+
+  const getRegionVisible = useCallback(
+    (lang) => regionVisible[lang] ?? PAGE_SIZE,
+    [regionVisible]
+  );
+
+  /**
+   * Realtime load more handler:
+   * 1. Shows remaining songs in local memory first.
+   * 2. When end is reached, dynamically fetches the next page live from PagalWorld and saves to DB in real-time!
+   */
+  const loadMoreRegion = useCallback(
+    async (lang) => {
+      const currVisible = getRegionVisible(lang);
+      const localSongs = byLanguage(lang);
+
+      // If we still have unrevealed songs in local memory, reveal them immediately
+      if (currVisible < localSongs.length) {
+        setRegionVisible((prev) => ({
+          ...prev,
+          [lang]: currVisible + PAGE_SIZE,
+        }));
+        return;
+      }
+
+      // If all local songs are displayed, trigger real-time on-demand scraping of the next page!
+      const nextPage = regionPage[lang] ?? 2;
+      setRegionScraping((prev) => ({ ...prev, [lang]: true }));
+
+      try {
+        const res = await songService.scrapeCategoryPage(lang, nextPage);
+        if (res) {
+          // Always advance the page counter regardless of how many songs were returned
+          // (songs might already exist in DB from a previous scrape)
+          setRegionPage((prev) => ({ ...prev, [lang]: nextPage + 1 }));
+
+          // Update hasMore from API — API knows total page count
+          const moreAvailable = res.hasMore !== false;
+          setRegionHasMore((prev) => ({ ...prev, [lang]: moreAvailable }));
+
+          if (Array.isArray(res.songs) && res.songs.length > 0) {
+            // New songs found! Append to catalog and reveal more
+            setRawSongs((prev) => {
+              const existingUrls = new Set(prev.map((s) => (s.audio_url || "").toLowerCase()));
+              const newSongs = res.songs.filter(
+                (s) => s.audio_url && !existingUrls.has(s.audio_url.toLowerCase())
+              );
+              return newSongs.length > 0 ? [...prev, ...newSongs] : prev;
+            });
+            setRegionVisible((prev) => ({ ...prev, [lang]: currVisible + PAGE_SIZE }));
+          }
+          // If 0 songs returned but hasMore=true, user can click again for next page
+        } else {
+          setRegionHasMore((prev) => ({ ...prev, [lang]: false }));
+        }
+      } catch (err) {
+        console.error(`Live page scrape failed for ${lang}:`, err);
+      } finally {
+        setRegionScraping((prev) => ({ ...prev, [lang]: false }));
+      }
+    },
+    [getRegionVisible, byLanguage, regionPage]
+  );
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -112,13 +220,21 @@ const Home = () => {
         </button>
       )}
 
+      {/* ── Fresh on Sangeet ── */}
       <Section title="Fresh on Sangeet" eyebrow="Just added" status={sectionStatus} onRetry={() => window.location.reload()} id="fresh">
-        {fresh.map((song, i) => (
+        {fresh.slice(0, freshVisible).map((song, i) => (
           <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
             <SongCard song={song} queue={fresh} index={i} onAddToPlaylist={setAddToPlaylistSong} />
           </div>
         ))}
       </Section>
+      {sectionStatus === "ready" && (
+        <LoadMoreButton
+          onClick={() => setFreshVisible((v) => v + PAGE_SIZE)}
+          disabled={freshVisible >= fresh.length}
+          label="Load More"
+        />
+      )}
 
       {recentlyPlayed.length > 0 && (
         <Section title="Your Sound" eyebrow="Because you listened" status="ready">
@@ -130,27 +246,51 @@ const Home = () => {
         </Section>
       )}
 
+      {/* ── Trending in India ── */}
       <Section title="Trending in India" eyebrow="Hot right now" status={sectionStatus} seeAllHref="/discover" id="trending">
-        {trending.map((song, i) => (
+        {trending.slice(0, trendingVisible).map((song, i) => (
           <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
             <SongCard song={song} queue={trending} index={i} onAddToPlaylist={setAddToPlaylistSong} />
           </div>
         ))}
       </Section>
+      {sectionStatus === "ready" && (
+        <LoadMoreButton
+          onClick={() => setTrendingVisible((v) => v + PAGE_SIZE)}
+          disabled={trendingVisible >= trending.length}
+          label="Load More"
+        />
+      )}
 
+      {/* ── Regional Spotlights with Realtime Scraping on Load More ── */}
       {status === "ready" && regions.length === 0 ? (
         <EmptyState title="No regional music yet" description="Regional collections will appear once songs are tagged with a language." />
       ) : (
         <div id="regional" className="scroll-mt-24 space-y-4 md:space-y-6">
-          {regions.map((region) => (
-            <Section key={region.lang} title={`${region.lang} Spotlight`} eyebrow="Regional Spotlight" status="ready">
-              {region.songs.map((song, i) => (
-                <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
-                  <SongCard song={song} queue={region.songs} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-                </div>
-              ))}
-            </Section>
-          ))}
+          {regions.map((region) => {
+            const visible = getRegionVisible(region.lang);
+            const remaining = region.songs.length - visible;
+            const isScraping = regionScraping[region.lang] || false;
+            const noMorePages = regionHasMore[region.lang] === false;
+
+            return (
+              <div key={region.lang}>
+                <Section title={`${region.lang} Spotlight`} eyebrow="Regional Spotlight" status="ready">
+                  {region.songs.slice(0, visible).map((song, i) => (
+                    <div key={song._id || song.audio_url || i} className="w-36 shrink-0 sm:w-40 md:w-44">
+                      <SongCard song={song} queue={region.songs} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+                    </div>
+                  ))}
+                </Section>
+                <LoadMoreButton
+                  onClick={() => loadMoreRegion(region.lang)}
+                  loading={isScraping}
+                  disabled={noMorePages && remaining <= 0}
+                  label={isScraping ? "Loading..." : "Load More"}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 

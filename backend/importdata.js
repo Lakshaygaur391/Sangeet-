@@ -35,34 +35,31 @@ const normalizeSongRecord = (song = {}) => {
 };
 
 const dedupeSongs = (songs = []) => {
-  const seen = new Map();
+  const seenAudio = new Set();
+  const seenTitle = new Set();
+  const result = [];
 
   for (const song of songs) {
     const normalized = normalizeSongRecord(song);
-    const title = normalized.title.toLowerCase();
-    const artist = normalized.artist.toLowerCase();
-    const language = normalized.language.toLowerCase();
+    const titleKey = normalized.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const artistKey = normalized.artist.split(/[,&]/)[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const audioKey = (normalized.audio_url || "").trim().toLowerCase();
 
-    if (!title || !artist) continue;
+    if (!titleKey) continue;
 
-    const key = `${title}::${artist}::${language}`;
-    if (!seen.has(key)) {
-      seen.set(key, normalized);
-      continue;
+    if (audioKey) {
+      if (seenAudio.has(audioKey)) continue;
+      seenAudio.add(audioKey);
     }
 
-    const existing = seen.get(key);
-    seen.set(key, {
-      ...existing,
-      ...normalized,
-      image: existing.image || normalized.image,
-      audio_url: existing.audio_url || normalized.audio_url || "",
-      youtube_url: existing.youtube_url || normalized.youtube_url || "",
-      thumbnail_url: existing.thumbnail_url || normalized.thumbnail_url || "",
-    });
+    const comboKey = `${titleKey}::${artistKey}`;
+    if (seenTitle.has(comboKey)) continue;
+    seenTitle.add(comboKey);
+
+    result.push(normalized);
   }
 
-  return Array.from(seen.values());
+  return result;
 };
 
 const mongoUri = process.env.MONGO_URI || process.env.Mongo_URI;

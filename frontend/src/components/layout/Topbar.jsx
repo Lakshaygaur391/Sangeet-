@@ -1,47 +1,92 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { IoIosSearch } from "react-icons/io";
 import { IoLogOutOutline, IoMenuOutline } from "react-icons/io5";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { usePlayer } from "../../context/PlayerContext";
 import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
+import songService from "../../services/songService";
 import { normalizeSong, scoreSongMatch, avatarFor } from "../../lib/media";
 
 const Topbar = () => {
-  const { searchQuery, setSearchQuery, songList, playSong } = usePlayer();
+  const { searchQuery, setSearchQuery, playSong } = usePlayer();
   const { user, isAuthenticated, logout } = useAuth();
   const { openAuthPrompt, toast } = useUI();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch search suggestions from API when query changes
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSearching(true);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const results = await songService.search(q);
+        if (!cancelled) {
+          setSearchResults(Array.isArray(results) ? results.map(normalizeSong) : []);
+        }
+      } catch {
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
 
   const artistResults = useMemo(() => {
-    if (!searchQuery) return [];
+    if (!searchQuery.trim() || searchResults.length === 0) return [];
     const q = searchQuery.toLowerCase();
-    return [
-      ...new Map(
-        songList
-          .map(normalizeSong)
-          .filter((s) => s.artist && s.artist !== "Unknown Artist")
-          .map((s) => [s.artist, { id: `artist-${s.artist}`, type: "artist", name: s.artist, image: avatarFor(s.artist) }])
-      ).values(),
-    ]
-      .filter((a) => a.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [songList, searchQuery]);
+    const artistMap = new Map();
+    for (const song of searchResults) {
+      const name = (song.artist || "").trim();
+      if (!name || name === "Unknown Artist") continue;
+      const key = name.toLowerCase();
+      if (key.includes(q) && !artistMap.has(key)) {
+        artistMap.set(key, {
+          id: `artist-${name}`,
+          type: "artist",
+          name,
+          image: avatarFor(name),
+        });
+      }
+    }
+    return Array.from(artistMap.values()).slice(0, 4);
+  }, [searchResults, searchQuery]);
 
   const songResults = useMemo(() => {
-    if (!searchQuery) return [];
-    const q = searchQuery.toLowerCase();
-    return songList
-      .map(normalizeSong)
-      .filter((s) => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q))
-      .map((s) => ({ ...s, type: "song", score: scoreSongMatch(s, searchQuery) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
-  }, [songList, searchQuery]);
+    if (!searchQuery.trim()) return [];
+    return searchResults.slice(0, 6).map((s) => ({ ...s, type: "song" }));
+  }, [searchResults, searchQuery]);
 
-  const rows = [...songResults, ...artistResults.slice(0, 4)];
+  const rows = [...songResults, ...artistResults];
 
   const handleSelectSong = (song, index) => {
     if (!isAuthenticated) {
@@ -49,7 +94,7 @@ const Topbar = () => {
       openAuthPrompt("default");
       return;
     }
-    playSong(song, songList, index);
+    playSong(song, searchResults.length > 0 ? searchResults : [song], index);
     setSearchQuery("");
     setIsOpen(false);
   };
@@ -76,7 +121,7 @@ const Topbar = () => {
         </span>
       </Link>
 
-      <form onSubmit={handleSubmit} className="relative w-full max-w-[620px] md:w-[36%] md:min-w-[260px]">
+      <form ref={searchContainerRef} onSubmit={handleSubmit} className="relative w-full max-w-[620px] md:w-[36%] md:min-w-[260px]">
         <div className="flex items-center rounded-full border border-white/10 bg-[#1c1c1e] shadow-[0_0_0_2px_rgba(255,255,255,0.06)] transition focus-within:border-amber-500/60 focus-within:shadow-[0_0_0_2px_rgba(234,179,74,0.35)]">
           <div className="pl-3 pr-2 text-xl text-white/70 md:pl-4">
             <IoIosSearch />
