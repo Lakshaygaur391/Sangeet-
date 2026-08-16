@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getHomeFeed,
   getAllSongs,
   getSongsByLanguage,
   getArtists,
@@ -12,10 +13,13 @@ import {
   getYears,
   invalidateCatalogCache,
   invalidateArtistsCache,
+  invalidateHomeFeedCache,
 } from "../controllers/songController.js";
 
 const router = express.Router();
 
+router.get("/feed/home", getHomeFeed);
+router.get("/home-feed", getHomeFeed);
 router.get("/songs", getAllSongs);
 router.get("/search", searchSongs);
 router.get("/songs/search", searchSongs);

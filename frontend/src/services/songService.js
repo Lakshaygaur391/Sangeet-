@@ -30,6 +30,16 @@ function langToSlug(lang) {
 // Lives for the entire browser session — survives React unmounts/remounts.
 // Home page reads from here instantly on every re-visit (zero loading delay).
 
+let _homeFeedCache = null;
+let _homeFeedPromise = null;
+
+try {
+  const stored = sessionStorage.getItem("sangeet_home_feed");
+  if (stored) {
+    _homeFeedCache = JSON.parse(stored);
+  }
+} catch (e) {}
+
 let _catalogCache = null;    // resolved song array
 let _catalogPromise = null;  // in-flight promise (prevents duplicate network calls)
 let _albumsCache = null;
@@ -37,7 +47,27 @@ let _albumsPromise = null;
 let _artistsCache = null;
 let _artistsPromise = null;
 
-/** Pre-warm caches as early as possible (called from App.jsx on startup) */
+/** Pre-warm the fast Home Feed immediately on startup (compact ~200KB payload) */
+export function prefetchHomeFeed() {
+  if (_homeFeedPromise) return _homeFeedPromise;
+  _homeFeedPromise = safeRequest(api.get("/api/feed/home"), null).then((data) => {
+    if (data && typeof data === "object") {
+      _homeFeedCache = data;
+      try {
+        sessionStorage.setItem("sangeet_home_feed", JSON.stringify(data));
+      } catch (e) {}
+    }
+    _homeFeedPromise = null;
+    return _homeFeedCache;
+  });
+  return _homeFeedPromise;
+}
+
+export function getCachedHomeFeedSync() {
+  return _homeFeedCache;
+}
+
+/** Pre-warm caches on-demand */
 export function prefetchCatalog() {
   if (_catalogCache || _catalogPromise) return;
   _catalogPromise = safeRequest(api.get("/api/songs"), []).then((data) => {
@@ -99,7 +129,14 @@ export function getCachedSearchResults(query) {
 }
 
 const songService = {
-  /** Returns catalog instantly from cache on re-visits; fetches only once per session */
+  /** Returns lightweight Home Feed with zero lag */
+  getHomeFeed: () => {
+    if (_homeFeedCache) return Promise.resolve(_homeFeedCache);
+    if (_homeFeedPromise) return _homeFeedPromise;
+    return prefetchHomeFeed();
+  },
+
+  /** Returns catalog instantly from cache on re-visits; fetches on demand */
   getAll: () => {
     if (_catalogCache) return Promise.resolve(_catalogCache);
     if (_catalogPromise) return _catalogPromise;
@@ -123,7 +160,7 @@ const songService = {
     return _albumsPromise;
   },
 
-  /** Returns all artists dynamically with their songs and photos */
+  /** Returns all artists dynamically with their photos */
   getArtists: () => {
     if (_artistsCache) return Promise.resolve(_artistsCache);
     if (_artistsPromise) return _artistsPromise;
@@ -133,6 +170,17 @@ const songService = {
       return _artistsCache;
     });
     return _artistsPromise;
+  },
+
+  /** Fetch songs by language with server-side pagination */
+  getByLanguage: async (language, page = 1, limit = 50) => {
+    const res = await safeRequest(
+      api.get(`/api/songs/language/${encodeURIComponent(language)}`, { params: { page, limit } }),
+      null
+    );
+    if (!res) return { songs: [], hasMore: false, total: 0 };
+    if (Array.isArray(res)) return { songs: withAudio(res), hasMore: false, total: res.length };
+    return { ...res, songs: withAudio(res.songs) };
   },
 
   /** Fetch a paginated page of songs. Returns { songs, total, page, limit, hasMore } or null */

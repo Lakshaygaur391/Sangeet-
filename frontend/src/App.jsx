@@ -6,12 +6,10 @@ import { LibraryProvider } from "./context/LibraryContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppShell from "./components/layout/AppShell";
 import PlaybackBridge from "./PlaybackBridge";
-import { prefetchCatalog, prefetchAlbums, prefetchArtists } from "./services/songService";
+import { prefetchHomeFeed } from "./services/songService";
 
-// Pre-warm catalog, album, and artist caches immediately on startup
-prefetchCatalog();
-prefetchAlbums();
-prefetchArtists();
+// Pre-warm fast home feed immediately on startup (~200KB instead of 15MB)
+prefetchHomeFeed();
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";

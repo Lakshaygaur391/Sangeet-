@@ -10,8 +10,8 @@ import { usePlayer } from "../context/PlayerContext";
 import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
-import songService, { getCachedCatalogSync, getCachedAlbumsSync, getCachedArtistsSync } from "../services/songService";
-import { normalizeSong, getSongDecade, getArtistImage } from "../lib/media";
+import songService, { getCachedHomeFeedSync } from "../services/songService";
+import { normalizeSong, getArtistImage } from "../lib/media";
 
 const GREETINGS = ["Welcome back", "Good to see you", "Ready to listen"];
 const PAGE_SIZE = 50;
@@ -54,19 +54,12 @@ const Home = () => {
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
-  const cachedCatalog = getCachedCatalogSync();
-  const cachedAlbums = getCachedAlbumsSync();
-  const cachedArtists = getCachedArtistsSync();
-
-  const [status, setStatus] = useState(cachedCatalog ? "ready" : "loading");
-  const [rawSongs, setRawSongs] = useState(cachedCatalog || []);
-  const [albumsData, setAlbumsData] = useState(cachedAlbums || []);
-  const [artistsData, setArtistsData] = useState(cachedArtists || []);
+  const cachedFeed = getCachedHomeFeedSync();
+  const [feed, setFeed] = useState(cachedFeed || null);
+  const [status, setStatus] = useState(cachedFeed ? "ready" : "loading");
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
 
   const [bollywoodVisible, setBollywoodVisible] = useState(PAGE_SIZE);
-
-  // Per-section visible count state
   const [freshVisible, setFreshVisible] = useState(PAGE_SIZE);
   const [trendingVisible, setTrendingVisible] = useState(PAGE_SIZE);
   const [albumsVisible, setAlbumsVisible] = useState(20);
@@ -78,160 +71,83 @@ const Home = () => {
   const [regionPage, setRegionPage] = useState({});
   const [regionScraping, setRegionScraping] = useState({});
   const [regionHasMore, setRegionHasMore] = useState({});
+  const [extraRegionalSongs, setExtraRegionalSongs] = useState({});
+  const [extraBollywood, setExtraBollywood] = useState([]);
+  const [loadingBollywoodMore, setLoadingBollywoodMore] = useState(false);
+  const [bollywoodPage, setBollywoodPage] = useState(2);
+  const [bollywoodHasMore, setBollywoodHasMore] = useState(true);
 
   const greeting = useMemo(() => GREETINGS[new Date().getDate() % GREETINGS.length], []);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!getCachedCatalogSync()) {
+      if (!getCachedHomeFeedSync()) {
         setStatus("loading");
       }
-      const [fetchedSongs, fetchedAlbums, fetchedArtists] = await Promise.all([
-        songService.getAll(),
-        songService.getAlbums(),
-        songService.getArtists(),
-      ]);
+      const data = await songService.getHomeFeed();
       if (cancelled) return;
-      if (fetchedSongs === null && !getCachedCatalogSync()) {
+      if (!data && !getCachedHomeFeedSync()) {
         setStatus("error");
         return;
       }
-      if (fetchedSongs) setRawSongs(fetchedSongs);
-      if (Array.isArray(fetchedAlbums)) setAlbumsData(fetchedAlbums);
-      if (Array.isArray(fetchedArtists)) setArtistsData(fetchedArtists);
-      setStatus("ready");
+      if (data) {
+        setFeed(data);
+        setStatus("ready");
+      }
     }
     load();
     return () => { cancelled = true; };
   }, []);
 
-  // Strict deduplication ensures every container has unique songs
-  const songs = useMemo(() => {
-    const seen = new Set();
-    const result = [];
-    for (const raw of rawSongs) {
-      const s = normalizeSong(raw);
-      const audioKey = (s.audio_url || "").trim().toLowerCase();
-      const titleKey = (s.title || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-      const artistKey = (s.artist || "").trim().toLowerCase().split(/[,&]/)[0].replace(/[^a-z0-9]/g, "");
-      const key = audioKey || `${titleKey}::${artistKey}`;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      result.push(s);
-    }
-    return result;
-  }, [rawSongs]);
+  const featured = useMemo(() => (feed?.featured ? normalizeSong(feed.featured) : null), [feed]);
+  const fresh = useMemo(() => (feed?.fresh || []).map(normalizeSong), [feed]);
+  const bollywoodSongs = useMemo(() => [...(feed?.bollywood || []).map(normalizeSong), ...extraBollywood], [feed, extraBollywood]);
+  const ninetiesSongs = useMemo(() => (feed?.nineties || []).map(normalizeSong), [feed]);
+  const twothousandsSongs = useMemo(() => (feed?.twothousands || []).map(normalizeSong), [feed]);
+  const trending = useMemo(() => (feed?.trending || []).map(normalizeSong), [feed]);
+  const albumsData = useMemo(() => feed?.albums || [], [feed]);
+  const allArtists = useMemo(() => (feed?.artists || []).map((a) => ({
+    ...a,
+    image: a.image || getArtistImage(a.name),
+  })), [feed]);
 
-  const byLanguage = useCallback(
-    (lang) =>
-      songs.filter((s) => {
-        const songLang = (s.language || "").trim().toLowerCase();
-        const target = lang.trim().toLowerCase();
-        return songLang === target;
-      }),
-    [songs]
-  );
-
-  const featured = songs[0];
-
-  // Fresh on Sangeet (Sorted latest year first: 2026 → 2025 → 2024 → ...)
-  const fresh = useMemo(() => {
-    const yearOrder = (s) => {
-      const y = s.year || s._year || "";
-      if (!isNaN(y)) return Number(y);
-      if (y === "2010s") return 2010;
-      if (y === "90s" || y === "Retro") return 1995;
-      return 0;
-    };
-    return [...songs].sort((a, b) => yearOrder(b) - yearOrder(a));
-  }, [songs]);
-
-  const trending = useMemo(() => [...songs].reverse(), [songs]);
-
-  // ── 90s Evergreen Bollywood Spotlight (1990–2000)
-  const ninetiesSongs = useMemo(() => {
-    return songs.filter((s) => {
-      const decade = getSongDecade(s);
-      const lang = (s.language || "").toLowerCase();
-      return decade === "90s" && (lang === "bollywood" || lang === "hindi" || !lang);
-    });
-  }, [songs]);
-
-  // ── 2000s Golden Era Bollywood Spotlight (2000–2010)
-  const twothousandsSongs = useMemo(() => {
-    return songs.filter((s) => {
-      const decade = getSongDecade(s);
-      const lang = (s.language || "").toLowerCase();
-      return decade === "2000s" && (lang === "bollywood" || lang === "hindi" || !lang);
-    });
-  }, [songs]);
-
-  // ── Bollywood Spotlight (Sorted from Latest 2026/2025 to Oldest)
-  const bollywoodSongs = useMemo(() => {
-    const list = byLanguage("Bollywood");
-    const yearOrder = (s) => {
-      const y = s.year || s._year || "";
-      if (!isNaN(y)) return Number(y);
-      if (y === "2010s") return 2010;
-      if (y === "90s" || y === "Retro") return 1995;
-      return 0;
-    };
-    return [...list].sort((a, b) => yearOrder(b) - yearOrder(a));
-  }, [byLanguage]);
-
-  // ── Top 100 Artists sorted by most songs first
-  const allArtists = useMemo(() => {
-    let list;
-    if (artistsData && artistsData.length > 0) {
-      list = artistsData;
-    } else {
-      // Fallback: derive dynamic artist cards from catalog
-      const artistMap = new Map();
-      songs.forEach((s) => {
-        const raw = (s.artist || "").trim();
-        if (!raw || raw === "Unknown Artist") return;
-        const tokens = raw.split(/[,/;&|]|\b(?:ft\.?|feat\.?|featuring|with|and|&)\b/i).map((t) => t.trim()).filter((t) => t.length > 1 && t.length < 50);
-        tokens.forEach((art) => {
-          const key = art.toLowerCase();
-          if (!artistMap.has(key)) {
-            artistMap.set(key, { id: art, name: art, image: getArtistImage(art, s.thumbnail_url), songs: [s] });
-          } else {
-            artistMap.get(key).songs.push(s);
-          }
-        });
-      });
-      list = Array.from(artistMap.values());
-    }
-    // Sort by most songs first, then take top 100
-    return [...list]
-      .sort((a, b) => {
-        const ca = Array.isArray(a.songs) ? a.songs.length : (a.songCount || 0);
-        const cb = Array.isArray(b.songs) ? b.songs.length : (b.songCount || 0);
-        return cb - ca;
+  const otherRegions = useMemo(() => {
+    const regionalObj = feed?.regional || {};
+    return Object.entries(regionalObj)
+      .map(([lang, songsList]) => {
+        const extra = extraRegionalSongs[lang] || [];
+        return {
+          lang,
+          songs: [...songsList.map(normalizeSong), ...extra],
+        };
       })
-      .slice(0, 100);
-  }, [artistsData, songs]);
+      .filter((r) => r.songs.length > 0);
+  }, [feed, extraRegionalSongs]);
 
-  // Other regional spotlights
-  const otherRegions = [
-    "Punjabi",
-    "Haryanvi",
-    "Indipop",
-    "Bhojpuri",
-    "Tamil",
-    "Telugu",
-    "Malayalam",
-    "Kannada",
-    "Marathi",
-    "English",
-    "Instagram viral song",
-  ].map((lang) => ({
-    lang,
-    songs: byLanguage(lang),
-  })).filter((r) => r.songs.length > 0);
-
-  const sectionStatus = status === "loading" ? "loading" : status === "error" ? "error" : songs.length === 0 ? "empty" : "ready";
+  const loadMoreBollywood = async () => {
+    if (bollywoodVisible < bollywoodSongs.length) {
+      setBollywoodVisible((v) => v + PAGE_SIZE);
+      return;
+    }
+    if (!bollywoodHasMore || loadingBollywoodMore) return;
+    setLoadingBollywoodMore(true);
+    try {
+      const res = await songService.getByLanguage("Bollywood", bollywoodPage, PAGE_SIZE);
+      if (res && res.songs && res.songs.length > 0) {
+        setExtraBollywood((prev) => [...prev, ...res.songs.map(normalizeSong)]);
+        setBollywoodPage((p) => p + 1);
+        setBollywoodVisible((v) => v + PAGE_SIZE);
+        if (res.hasMore === false) setBollywoodHasMore(false);
+      } else {
+        setBollywoodHasMore(false);
+      }
+    } catch (e) {
+      setBollywoodHasMore(false);
+    } finally {
+      setLoadingBollywoodMore(false);
+    }
+  };
 
   const getRegionVisible = useCallback(
     (lang) => regionVisible[lang] ?? PAGE_SIZE,
@@ -241,7 +157,8 @@ const Home = () => {
   const loadMoreRegion = useCallback(
     async (lang) => {
       const currVisible = getRegionVisible(lang);
-      const localSongs = byLanguage(lang);
+      const reg = otherRegions.find((r) => r.lang === lang);
+      const localSongs = reg ? reg.songs : [];
 
       if (currVisible < localSongs.length) {
         setRegionVisible((prev) => ({
@@ -255,24 +172,29 @@ const Home = () => {
       setRegionScraping((prev) => ({ ...prev, [lang]: true }));
 
       try {
-        const res = await songService.scrapeCategoryPage(lang, nextPage);
-        if (res) {
+        const res = await songService.getByLanguage(lang, nextPage, PAGE_SIZE);
+        if (res && Array.isArray(res.songs) && res.songs.length > 0) {
           setRegionPage((prev) => ({ ...prev, [lang]: nextPage + 1 }));
           const moreAvailable = res.hasMore !== false;
           setRegionHasMore((prev) => ({ ...prev, [lang]: moreAvailable }));
-
-          if (Array.isArray(res.songs) && res.songs.length > 0) {
-            setRawSongs((prev) => {
-              const existingUrls = new Set(prev.map((s) => (s.audio_url || "").toLowerCase()));
-              const newSongs = res.songs.filter(
-                (s) => s.audio_url && !existingUrls.has(s.audio_url.toLowerCase())
-              );
-              return newSongs.length > 0 ? [...prev, ...newSongs] : prev;
-            });
-            setRegionVisible((prev) => ({ ...prev, [lang]: currVisible + PAGE_SIZE }));
-          }
+          setExtraRegionalSongs((prev) => ({
+            ...prev,
+            [lang]: [...(prev[lang] || []), ...res.songs.map(normalizeSong)],
+          }));
+          setRegionVisible((prev) => ({ ...prev, [lang]: currVisible + PAGE_SIZE }));
         } else {
-          setRegionHasMore((prev) => ({ ...prev, [lang]: false }));
+          // Fallback to live scraper if DB page runs out
+          const scrapeRes = await songService.scrapeCategoryPage(lang, nextPage);
+          if (scrapeRes && Array.isArray(scrapeRes.songs) && scrapeRes.songs.length > 0) {
+            setRegionPage((prev) => ({ ...prev, [lang]: nextPage + 1 }));
+            setExtraRegionalSongs((prev) => ({
+              ...prev,
+              [lang]: [...(prev[lang] || []), ...scrapeRes.songs.map(normalizeSong)],
+            }));
+            setRegionVisible((prev) => ({ ...prev, [lang]: currVisible + PAGE_SIZE }));
+          } else {
+            setRegionHasMore((prev) => ({ ...prev, [lang]: false }));
+          }
         }
       } catch (err) {
         console.error(`Live page scrape failed for ${lang}:`, err);
@@ -280,8 +202,22 @@ const Home = () => {
         setRegionScraping((prev) => ({ ...prev, [lang]: false }));
       }
     },
-    [getRegionVisible, byLanguage, regionPage]
+    [getRegionVisible, otherRegions, regionPage]
   );
+
+  const allFeedSongs = useMemo(() => {
+    return [
+      ...(featured ? [featured] : []),
+      ...fresh,
+      ...bollywoodSongs,
+      ...ninetiesSongs,
+      ...twothousandsSongs,
+      ...trending,
+      ...otherRegions.flatMap((r) => r.songs),
+    ];
+  }, [featured, fresh, bollywoodSongs, ninetiesSongs, twothousandsSongs, trending, otherRegions]);
+
+  const sectionStatus = status === "loading" ? "loading" : status === "error" ? "error" : allFeedSongs.length === 0 ? "empty" : "ready";
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -299,9 +235,9 @@ const Home = () => {
               openAuthPrompt("default");
               return;
             }
-            playSong(featured, songs, 0);
+            playSong(featured, [featured, ...fresh], 0);
           }}
-          className="group relative block w-full overflow-hidden rounded-3xl border border-white/10 text-left shadow-[0_25px_60px_rgba(0,0,0,0.4)]"
+          className="group relative block w-full overflow-hidden rounded-3xl border border-white/10 text-left shadow-[0_25px_60px_rgba(0,0,0,0.4)] cursor-pointer"
         >
           <img
             src={featured.thumbnail_url}
@@ -349,13 +285,12 @@ const Home = () => {
               </div>
             ))}
           </Section>
-          {bollywoodSongs.length > bollywoodVisible && (
-            <LoadMoreButton
-              onClick={() => setBollywoodVisible((v) => v + PAGE_SIZE)}
-              disabled={bollywoodVisible >= bollywoodSongs.length}
-              label="Load More Bollywood"
-            />
-          )}
+          <LoadMoreButton
+            onClick={loadMoreBollywood}
+            loading={loadingBollywoodMore}
+            disabled={!bollywoodHasMore && bollywoodVisible >= bollywoodSongs.length}
+            label={loadingBollywoodMore ? "Loading..." : "Load More Bollywood"}
+          />
         </div>
       )}
 

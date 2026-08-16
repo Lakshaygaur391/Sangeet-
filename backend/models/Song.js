@@ -14,12 +14,11 @@ const songSchema = new mongoose.Schema({
 // Text index for fast multi-field keyword search
 songSchema.index({ title: "text", artist: "text", album: "text", language: "text" });
 
-// Compound indexes for audio_url filtering + sorting
+// Compound indexes for fast filtered sorting and lookups
 songSchema.index({ audio_url: 1, title: 1 });
 songSchema.index({ audio_url: 1, artist: 1 });
 songSchema.index({ audio_url: 1, language: 1 });
-songSchema.index({ album: 1 });
-songSchema.index({ year: 1 });
+songSchema.index({ language: 1, year: -1 });
 
 export default mongoose.model("Song", songSchema);
 
