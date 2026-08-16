@@ -364,9 +364,7 @@ export const getArtists = async (req, res) => {
 
     const artists = Array.from(artistMap.values())
       .map(({ songKeys, ...artist }) => artist)
-      .sort((a, b) =>
-        (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
-      );
+      .sort((a, b) => (b.songs?.length || 0) - (a.songs?.length || 0));
 
     artistsCache = artists;
     artistsCacheExpiry = Date.now() + 5 * 60 * 1000;

@@ -70,7 +70,6 @@ const Home = () => {
   const [freshVisible, setFreshVisible] = useState(PAGE_SIZE);
   const [trendingVisible, setTrendingVisible] = useState(PAGE_SIZE);
   const [albumsVisible, setAlbumsVisible] = useState(20);
-  const [artistsVisible, setArtistsVisible] = useState(24);
   const [ninetiesVisible, setNinetiesVisible] = useState(PAGE_SIZE);
   const [twothousandsVisible, setTwothousandsVisible] = useState(PAGE_SIZE);
 
@@ -181,7 +180,7 @@ const Home = () => {
     return [...list].sort((a, b) => yearOrder(b) - yearOrder(a));
   }, [byLanguage]);
 
-  // ── Dynamic All Artists List (derived from backend & catalog)
+  // ── Top 100 Artists sorted by most songs first
   const allArtists = useMemo(() => {
     let list;
     if (artistsData && artistsData.length > 0) {
@@ -196,12 +195,7 @@ const Home = () => {
         tokens.forEach((art) => {
           const key = art.toLowerCase();
           if (!artistMap.has(key)) {
-            artistMap.set(key, {
-              id: art,
-              name: art,
-              image: getArtistImage(art, s.thumbnail_url),
-              songs: [s],
-            });
+            artistMap.set(key, { id: art, name: art, image: getArtistImage(art, s.thumbnail_url), songs: [s] });
           } else {
             artistMap.get(key).songs.push(s);
           }
@@ -209,10 +203,14 @@ const Home = () => {
       });
       list = Array.from(artistMap.values());
     }
-    // Sort alphabetically A → Z by artist name
-    return [...list].sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
-    );
+    // Sort by most songs first, then take top 100
+    return [...list]
+      .sort((a, b) => {
+        const ca = Array.isArray(a.songs) ? a.songs.length : (a.songCount || 0);
+        const cb = Array.isArray(b.songs) ? b.songs.length : (b.songCount || 0);
+        return cb - ca;
+      })
+      .slice(0, 100);
   }, [artistsData, songs]);
 
   // Other regional spotlights
@@ -472,25 +470,18 @@ const Home = () => {
         </div>
       )}
 
-      {/* ── 8. Artists to Explore (ALL Artists with Pagination) ── */}
+      {/* ── 8. Top Artists ── */}
       {allArtists.length > 0 && (
-        <div id="artists">
-          <Section
-            title="Artists to Explore"
-            eyebrow={`Discover ${allArtists.length} Artists`}
-            status="ready"
-          >
-            {allArtists.slice(0, artistsVisible).map((artist) => (
-              <ArtistCard key={artist.name || artist.id} artist={artist} />
-            ))}
-          </Section>
-          {artistsVisible < allArtists.length && (
-            <LoadMoreButton
-              onClick={() => setArtistsVisible((v) => v + 24)}
-              label={`Load More Artists (${allArtists.length - artistsVisible} remaining)`}
-            />
-          )}
-        </div>
+        <Section
+          id="artists"
+          title="Top Artists"
+          eyebrow="Most popular on Sangeet"
+          status="ready"
+        >
+          {allArtists.map((artist) => (
+            <ArtistCard key={artist.name || artist.id} artist={artist} />
+          ))}
+        </Section>
       )}
 
       {/* ── 9. Recently Played ── */}
