@@ -34,6 +34,10 @@ const Section = ({
   const startScrollLeftRef = useRef(0);
   const hasDraggedRef = useRef(false);
 
+  const scrollRafId = useRef(null);
+  const targetVelocity = useRef(0);
+  const isAnimating = useRef(false);
+
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -46,61 +50,90 @@ const Section = ({
     const el = scrollRef.current;
     if (!el) return;
     checkScroll();
-    el.addEventListener("scroll", checkScroll, { passive: true });
-    window.addEventListener("resize", checkScroll);
+
+    let rafId = null;
+    const onScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(checkScroll);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
-      el.removeEventListener("scroll", checkScroll);
-      window.removeEventListener("resize", checkScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, [checkScroll, children, status]);
 
-  // Smooth mouse-wheel translation: scrolling vertically while hovering scrolls horizontally
+  // Smooth momentum wheel physics loop via requestAnimationFrame (0 jank, 60/120fps)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const onWheel = (e) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        return; // Native trackpad horizontal scroll
+    const tick = () => {
+      if (!el || Math.abs(targetVelocity.current) < 0.1) {
+        targetVelocity.current = 0;
+        isAnimating.current = false;
+        return;
       }
+      el.scrollLeft += targetVelocity.current;
+      targetVelocity.current *= 0.88; // Physics friction damping
+      scrollRafId.current = requestAnimationFrame(tick);
+    };
+
+    const onWheel = (e) => {
+      // Allow native horizontal touchpad scroll
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
       if (e.deltaY === 0) return;
 
       const maxScroll = el.scrollWidth - el.clientWidth;
       const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
       const atEnd = el.scrollLeft >= maxScroll && e.deltaY > 0;
 
-      // If there is room to scroll horizontally inside this container, scroll smoothly
       if (!atStart && !atEnd && maxScroll > 0) {
         e.preventDefault();
-        el.scrollBy({
-          left: e.deltaY * 1.5,
-          behavior: "smooth",
-        });
+        targetVelocity.current += e.deltaY * 0.45;
+        // Clamp maximum instantaneous velocity
+        targetVelocity.current = Math.max(-80, Math.min(80, targetVelocity.current));
+
+        if (!isAnimating.current) {
+          isAnimating.current = true;
+          scrollRafId.current = requestAnimationFrame(tick);
+        }
       }
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+    };
   }, []);
 
   const handleScroll = (direction) => {
     const el = scrollRef.current;
     if (!el) return;
-    const scrollAmount = Math.max(300, el.clientWidth * 0.8);
+    const scrollAmount = Math.max(320, el.clientWidth * 0.75);
     el.scrollBy({
       left: direction === "left" ? -scrollAmount : scrollAmount,
       behavior: "smooth",
     });
   };
 
-  // Mouse Drag-to-Scroll handlers
+  // Mouse Drag-to-Scroll handlers with requestAnimationFrame
+  const dragRafId = useRef(null);
+  const targetDragScroll = useRef(0);
+
   const handleMouseDown = (e) => {
     const el = scrollRef.current;
     if (!el) return;
+    targetVelocity.current = 0; // stop wheel animation
     isDownRef.current = true;
     hasDraggedRef.current = false;
     startXRef.current = e.pageX - el.offsetLeft;
     startScrollLeftRef.current = el.scrollLeft;
+    targetDragScroll.current = el.scrollLeft;
   };
 
   const handleMouseMove = (e) => {
@@ -109,15 +142,26 @@ const Section = ({
     if (!el) return;
     e.preventDefault();
     const x = e.pageX - el.offsetLeft;
-    const walk = (x - startXRef.current) * 1.4;
-    if (Math.abs(walk) > 5) {
+    const walk = (x - startXRef.current) * 1.3;
+    if (Math.abs(walk) > 4) {
       hasDraggedRef.current = true;
     }
-    el.scrollLeft = startScrollLeftRef.current - walk;
+    targetDragScroll.current = startScrollLeftRef.current - walk;
+
+    if (!dragRafId.current) {
+      dragRafId.current = requestAnimationFrame(() => {
+        if (el) el.scrollLeft = targetDragScroll.current;
+        dragRafId.current = null;
+      });
+    }
   };
 
   const handleMouseUpOrLeave = () => {
     isDownRef.current = false;
+    if (dragRafId.current) {
+      cancelAnimationFrame(dragRafId.current);
+      dragRafId.current = null;
+    }
     setTimeout(() => {
       hasDraggedRef.current = false;
     }, 50);

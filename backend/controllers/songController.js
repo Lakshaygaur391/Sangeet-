@@ -49,6 +49,8 @@ export const normalizeSongRecord = (song = {}) => {
   const plainSong = toPlainSong(song);
   const title = cleanText(plainSong.title || plainSong.name || "Unknown Song");
   const artist = cleanText(plainSong.artist || plainSong.singer || "Unknown Artist");
+  const album = cleanText(plainSong.album || "Single");
+  const year = cleanText(plainSong.year || "");
   const language = cleanText(plainSong.language || "Unknown");
 
   return {
@@ -63,6 +65,8 @@ export const normalizeSongRecord = (song = {}) => {
       .replace(/\s*[-–—]\s*/g, " - ")
       .replace(/\s{2,}/g, " ")
       .trim(),
+    album: album || "Single",
+    year: year || "",
     language: language
       .replace(/\s+/g, " ")
       .trim(),
@@ -224,16 +228,42 @@ export const enrichSong = async (song) => {
   };
 };
 
+// ── In-Memory Catalog Cache for 0ms Server Responses ────────────────────────
+let catalogCache = null;
+let catalogCacheExpiry = 0;
+const CATALOG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+let artistsCache = null;
+let artistsCacheExpiry = 0;
+
+export const invalidateCatalogCache = () => {
+  catalogCache = null;
+  catalogCacheExpiry = 0;
+};
+
+export const invalidateArtistsCache = () => {
+  artistsCache = null;
+  artistsCacheExpiry = 0;
+};
+
 export const getAllSongs = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 0;
     const limit = parseInt(req.query.limit, 10) || 0;
 
-    // Only return songs that have a direct MP3 audio_url so the player always works
-    const allSongs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
-    const normalizedSongs = dedupeSongs(allSongs);
+    let normalizedSongs = catalogCache;
+    const now = Date.now();
+    if (!normalizedSongs || now > catalogCacheExpiry) {
+      const allSongs = await Song.find({ audio_url: { $exists: true, $ne: "" } })
+        .select("title artist album year language audio_url thumbnail_url youtube_url")
+        .lean();
+      normalizedSongs = dedupeSongs(allSongs);
+      catalogCache = normalizedSongs;
+      catalogCacheExpiry = now + CATALOG_CACHE_TTL;
+    }
 
-    // If pagination params are provided, paginate; otherwise return full list
+    res.setHeader("Cache-Control", "public, max-age=180");
+
     if (page > 0 && limit > 0) {
       const total = normalizedSongs.length;
       const start = (page - 1) * limit;
@@ -259,8 +289,9 @@ export const getSongsByLanguage = async (req, res) => {
     const page = parseInt(req.query.page, 10) || 0;
     const limit = parseInt(req.query.limit, 10) || 0;
 
-    // Only return songs that have a direct MP3 audio_url
-    const allSongs = await Song.find({ language, audio_url: { $exists: true, $ne: "" } }).lean();
+    const allSongs = await Song.find({ language, audio_url: { $exists: true, $ne: "" } })
+      .select("title artist album year language audio_url thumbnail_url youtube_url")
+      .lean();
     const normalizedSongs = dedupeSongs(allSongs);
 
     if (page > 0 && limit > 0) {
@@ -282,10 +313,17 @@ export const getSongsByLanguage = async (req, res) => {
   }
 };
 
+
 export const getArtists = async (req, res) => {
   try {
-    // Only build artist cards from songs that have a playable audio_url
-    const songs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).lean();
+    if (artistsCache && Date.now() < artistsCacheExpiry) {
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json(artistsCache);
+    }
+
+    const songs = await Song.find({ audio_url: { $exists: true, $ne: "" } })
+      .select("title artist album year language audio_url thumbnail_url youtube_url")
+      .lean();
     const dedupedSongs = dedupeSongs(songs);
     const artistMap = new Map();
 
@@ -294,31 +332,46 @@ export const getArtists = async (req, res) => {
       const rawName = cleaned.artist;
       if (!rawName || rawName === "Unknown Artist") return;
 
-      const normalizedName = rawName
-        .replace(/\s+/g, " ")
-        .trim();
+      // Split multi-artist collaboration strings into distinct artists
+      const tokens = rawName
+        .split(/[,/;&|]|\b(?:ft\.?|feat\.?|featuring|with|and|&)\b/i)
+        .map((a) => a.trim())
+        .filter((a) => a.length >= 2 && a.length <= 50);
 
-      const artistKey = normalizedName.toLowerCase();
-      if (!artistMap.has(artistKey)) {
-        artistMap.set(artistKey, {
-          id: normalizedName,
-          name: normalizedName,
-          image: `https://ui-avatars.com/api/?name=${encodeURIComponent(normalizedName)}&background=random`,
-          songs: [],
-          songKeys: new Set(),
-        });
-      }
+      const uniqueTokens = tokens.length > 0 ? Array.from(new Set(tokens)) : [rawName.trim()];
 
-      const artistEntry = artistMap.get(artistKey);
-      const songKey = `${(cleaned.title || "").trim().toLowerCase()}::${(cleaned.artist || "").trim().toLowerCase()}::${(cleaned.language || "").trim().toLowerCase()}`;
+      uniqueTokens.forEach((individualArtist) => {
+        const artistKey = individualArtist.toLowerCase();
+        if (!artistMap.has(artistKey)) {
+          artistMap.set(artistKey, {
+            id: individualArtist,
+            name: individualArtist,
+            image: song.thumbnail_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(individualArtist)}&background=1c1c1e&color=eab34a`,
+            songs: [],
+            songKeys: new Set(),
+          });
+        }
 
-      if (artistEntry.songKeys.has(songKey)) return;
+        const artistEntry = artistMap.get(artistKey);
+        const songKey = `${(cleaned.title || "").trim().toLowerCase()}::${(cleaned.artist || "").trim().toLowerCase()}`;
 
-      artistEntry.songKeys.add(songKey);
-      artistEntry.songs.push(cleaned);
+        if (!artistEntry.songKeys.has(songKey)) {
+          artistEntry.songKeys.add(songKey);
+          artistEntry.songs.push(cleaned);
+        }
+      });
     });
 
-    const artists = Array.from(artistMap.values()).map(({ songKeys, ...artist }) => artist);
+    const artists = Array.from(artistMap.values())
+      .map(({ songKeys, ...artist }) => artist)
+      .sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
+      );
+
+    artistsCache = artists;
+    artistsCacheExpiry = Date.now() + 5 * 60 * 1000;
+
+    res.setHeader("Cache-Control", "public, max-age=180");
     res.json(artists);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -386,20 +439,19 @@ export const searchSongs = async (req, res) => {
     const safeRegex = new RegExp(escaped, "i");
     const prefixRegex = new RegExp(`^${escaped}`, "i");
 
-    // Fetch prefix matches first (fastest and most relevant), then substring matches
     const [prefixMatches, substringMatches] = await Promise.all([
       Song.find({
         audio_url: { $exists: true, $ne: "" },
         $or: [{ title: prefixRegex }, { artist: prefixRegex }],
       })
-        .select("title artist language audio_url thumbnail_url youtube_url")
+        .select("title artist album year language audio_url thumbnail_url youtube_url")
         .limit(limit)
         .lean(),
       Song.find({
         audio_url: { $exists: true, $ne: "" },
-        $or: [{ title: safeRegex }, { artist: safeRegex }, { language: safeRegex }],
+        $or: [{ title: safeRegex }, { artist: safeRegex }, { language: safeRegex }, { album: safeRegex }],
       })
-        .select("title artist language audio_url thumbnail_url youtube_url")
+        .select("title artist album year language audio_url thumbnail_url youtube_url")
         .limit(limit)
         .lean(),
     ]);
@@ -415,3 +467,108 @@ export const searchSongs = async (req, res) => {
   }
 };
 
+// ── Albums ────────────────────────────────────────────────────────────────────
+
+let albumsCache = null;
+let albumsCacheExpiry = 0;
+
+export const getAlbums = async (req, res) => {
+  try {
+    const language = req.query.language || null;
+    const year = req.query.year || null;
+
+    if (!language && !year && albumsCache && Date.now() < albumsCacheExpiry) {
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json(albumsCache);
+    }
+
+    const matchStage = { audio_url: { $exists: true, $ne: "" }, album: { $exists: true, $nin: ["", "Single"] } };
+    if (language) matchStage.language = language;
+    if (year) matchStage.year = year;
+
+    const albums = await Song.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$album",
+          name: { $first: "$album" },
+          coverImage: { $first: "$thumbnail_url" },
+          year: { $first: "$year" },
+          language: { $first: "$language" },
+          songCount: { $sum: 1 },
+          songs: {
+            $push: {
+              _id: "$_id",
+              title: "$title",
+              artist: "$artist",
+              audio_url: "$audio_url",
+              thumbnail_url: "$thumbnail_url",
+              youtube_url: "$youtube_url",
+              language: "$language",
+              year: "$year",
+              album: "$album",
+            },
+          },
+        },
+      },
+      { $sort: { year: -1, name: 1 } },
+    ]);
+
+    if (!language && !year) {
+      albumsCache = albums;
+      albumsCacheExpiry = Date.now() + 5 * 60 * 1000;
+    }
+
+    res.setHeader("Cache-Control", "public, max-age=180");
+    res.json(albums);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getSongsByAlbum = async (req, res) => {
+  try {
+    const albumName = decodeURIComponent(req.params.name || "");
+    if (!albumName) return res.status(400).json({ message: "Album name required" });
+
+    const songs = await Song.find({
+      album: new RegExp(`^${albumName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      audio_url: { $exists: true, $ne: "" },
+    }).lean();
+
+    if (!songs.length) return res.status(404).json({ message: "Album not found" });
+
+    const deduped = dedupeSongs(songs);
+    const sample = deduped[0] || {};
+
+    res.json({
+      name: albumName,
+      coverImage: sample.thumbnail_url || "",
+      releaseYear: sample.year || "",
+      artist: sample.artist || "",
+      language: sample.language || "",
+      songCount: deduped.length,
+      songs: deduped,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getYears = async (req, res) => {
+  try {
+    const language = req.query.language || null;
+    const matchStage = { audio_url: { $exists: true, $ne: "" }, year: { $exists: true, $ne: "" } };
+    if (language) matchStage.language = language;
+
+    const years = await Song.aggregate([
+      { $match: matchStage },
+      { $group: { _id: "$year", count: { $sum: 1 } } },
+      { $sort: { _id: -1 } },
+    ]);
+
+    res.json(years.map((y) => ({ year: y._id, count: y.count })));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Section from "../components/Section";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
@@ -9,41 +10,70 @@ import { usePlayer } from "../context/PlayerContext";
 import { useLibrary } from "../context/LibraryContext";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
-import songService from "../services/songService";
-import { normalizeSong } from "../lib/media";
-
-// Curated list of featured artists — static, no API call needed
-const FEATURED_ARTISTS = [
-  { name: "Arijit Singh",    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Arijit_Singh_live_performance_in_2024.jpg/440px-Arijit_Singh_live_performance_in_2024.jpg", verified: true },
-  { name: "Diljit Dosanjh",  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Diljit_Dosanjh_2023.jpg/440px-Diljit_Dosanjh_2023.jpg", verified: true },
-  { name: "Badshah",         image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Badshah_2023.jpg/440px-Badshah_2023.jpg", verified: true },
-  { name: "Shreya Ghoshal",  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Shreya_Ghoshal_2023.jpg/440px-Shreya_Ghoshal_2023.jpg", verified: true },
-  { name: "Neha Kakkar",     image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Neha_Kakkar_2022.jpg/440px-Neha_Kakkar_2022.jpg", verified: true },
-  { name: "Guru Randhawa",   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Guru_Randhawa_2019.jpg/440px-Guru_Randhawa_2019.jpg", verified: true },
-  { name: "Ap Dhillon",      image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/AP_Dhillon_2023.jpg/440px-AP_Dhillon_2023.jpg", verified: true },
-  { name: "Masoom Sharma",   image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&auto=format&fit=crop&q=80", verified: true },
-  { name: "Khasa Aala Chahar", image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&auto=format&fit=crop&q=80", verified: true },
-  { name: "Renuka Panwar",   image: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80", verified: true },
-  { name: "R Nait",          image: "https://images.unsplash.com/photo-1571266028243-d220c6a7a2d0?w=400&auto=format&fit=crop&q=80", verified: true },
-  { name: "Sumit Goswami",   image: "https://images.unsplash.com/photo-1598387993441-a364f854ceba?w=400&auto=format&fit=crop&q=80", verified: true },
-];
+import songService, { getCachedCatalogSync, getCachedAlbumsSync, getCachedArtistsSync } from "../services/songService";
+import { normalizeSong, getSongDecade, getArtistImage } from "../lib/media";
 
 const GREETINGS = ["Welcome back", "Good to see you", "Ready to listen"];
-const PAGE_SIZE = 50; // songs revealed per Load More click
+const PAGE_SIZE = 50;
+
+/** Mini album card component */
+const AlbumCard = ({ album }) => (
+  <Link
+    to={`/album/${encodeURIComponent(album.name)}`}
+    className="group w-36 shrink-0 sm:w-40 md:w-44"
+  >
+    <div className="relative overflow-hidden rounded-2xl bg-white/5 aspect-square shadow-lg transition-transform duration-300 group-hover:scale-[1.04] group-hover:shadow-amber-500/20 group-hover:shadow-xl">
+      <img
+        src={album.coverImage || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=60"}
+        alt={album.name}
+        className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
+        loading="lazy"
+        decoding="async"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      {album.year && (
+        <span className="absolute top-2 right-2 rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold text-black">
+          {album.year}
+        </span>
+      )}
+    </div>
+    <div className="mt-2 px-0.5">
+      <p className="truncate text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+        {album.name}
+      </p>
+      <p className="mt-0.5 truncate text-xs text-white/50">
+        {album.songCount} {album.songCount === 1 ? "song" : "songs"}{album.language ? ` · ${album.language}` : ""}
+      </p>
+    </div>
+  </Link>
+);
 
 const Home = () => {
   const { playSong } = usePlayer();
   const { recentlyPlayed } = useLibrary();
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
-  const [status, setStatus] = useState("loading");
-  const [rawSongs, setRawSongs] = useState([]);
+
+  const cachedCatalog = getCachedCatalogSync();
+  const cachedAlbums = getCachedAlbumsSync();
+  const cachedArtists = getCachedArtistsSync();
+
+  const [status, setStatus] = useState(cachedCatalog ? "ready" : "loading");
+  const [rawSongs, setRawSongs] = useState(cachedCatalog || []);
+  const [albumsData, setAlbumsData] = useState(cachedAlbums || []);
+  const [artistsData, setArtistsData] = useState(cachedArtists || []);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
+
+  const [bollywoodVisible, setBollywoodVisible] = useState(PAGE_SIZE);
 
   // Per-section visible count state
   const [freshVisible, setFreshVisible] = useState(PAGE_SIZE);
   const [trendingVisible, setTrendingVisible] = useState(PAGE_SIZE);
-  
+  const [albumsVisible, setAlbumsVisible] = useState(20);
+  const [artistsVisible, setArtistsVisible] = useState(24);
+  const [ninetiesVisible, setNinetiesVisible] = useState(PAGE_SIZE);
+  const [twothousandsVisible, setTwothousandsVisible] = useState(PAGE_SIZE);
+
   // Regional visible count, live page tracker, and scraping indicators
   const [regionVisible, setRegionVisible] = useState({});
   const [regionPage, setRegionPage] = useState({});
@@ -55,20 +85,26 @@ const Home = () => {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setStatus("loading");
-      const fetchedSongs = await songService.getAll();
+      if (!getCachedCatalogSync()) {
+        setStatus("loading");
+      }
+      const [fetchedSongs, fetchedAlbums, fetchedArtists] = await Promise.all([
+        songService.getAll(),
+        songService.getAlbums(),
+        songService.getArtists(),
+      ]);
       if (cancelled) return;
-      if (fetchedSongs === null) {
+      if (fetchedSongs === null && !getCachedCatalogSync()) {
         setStatus("error");
         return;
       }
-      setRawSongs(fetchedSongs);
+      if (fetchedSongs) setRawSongs(fetchedSongs);
+      if (Array.isArray(fetchedAlbums)) setAlbumsData(fetchedAlbums);
+      if (Array.isArray(fetchedArtists)) setArtistsData(fetchedArtists);
       setStatus("ready");
     }
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   // Strict deduplication ensures every container has unique songs
@@ -99,15 +135,90 @@ const Home = () => {
   );
 
   const featured = songs[0];
-  const fresh = songs;
+
+  // Fresh on Sangeet (Sorted latest year first: 2026 → 2025 → 2024 → ...)
+  const fresh = useMemo(() => {
+    const yearOrder = (s) => {
+      const y = s.year || s._year || "";
+      if (!isNaN(y)) return Number(y);
+      if (y === "2010s") return 2010;
+      if (y === "90s" || y === "Retro") return 1995;
+      return 0;
+    };
+    return [...songs].sort((a, b) => yearOrder(b) - yearOrder(a));
+  }, [songs]);
+
   const trending = useMemo(() => [...songs].reverse(), [songs]);
 
-  // Show language spotlights in priority order; only include those with songs
-  const regions = [
+  // ── 90s Evergreen Bollywood Spotlight (1990–2000)
+  const ninetiesSongs = useMemo(() => {
+    return songs.filter((s) => {
+      const decade = getSongDecade(s);
+      const lang = (s.language || "").toLowerCase();
+      return decade === "90s" && (lang === "bollywood" || lang === "hindi" || !lang);
+    });
+  }, [songs]);
+
+  // ── 2000s Golden Era Bollywood Spotlight (2000–2010)
+  const twothousandsSongs = useMemo(() => {
+    return songs.filter((s) => {
+      const decade = getSongDecade(s);
+      const lang = (s.language || "").toLowerCase();
+      return decade === "2000s" && (lang === "bollywood" || lang === "hindi" || !lang);
+    });
+  }, [songs]);
+
+  // ── Bollywood Spotlight (Sorted from Latest 2026/2025 to Oldest)
+  const bollywoodSongs = useMemo(() => {
+    const list = byLanguage("Bollywood");
+    const yearOrder = (s) => {
+      const y = s.year || s._year || "";
+      if (!isNaN(y)) return Number(y);
+      if (y === "2010s") return 2010;
+      if (y === "90s" || y === "Retro") return 1995;
+      return 0;
+    };
+    return [...list].sort((a, b) => yearOrder(b) - yearOrder(a));
+  }, [byLanguage]);
+
+  // ── Dynamic All Artists List (derived from backend & catalog)
+  const allArtists = useMemo(() => {
+    let list;
+    if (artistsData && artistsData.length > 0) {
+      list = artistsData;
+    } else {
+      // Fallback: derive dynamic artist cards from catalog
+      const artistMap = new Map();
+      songs.forEach((s) => {
+        const raw = (s.artist || "").trim();
+        if (!raw || raw === "Unknown Artist") return;
+        const tokens = raw.split(/[,/;&|]|\b(?:ft\.?|feat\.?|featuring|with|and|&)\b/i).map((t) => t.trim()).filter((t) => t.length > 1 && t.length < 50);
+        tokens.forEach((art) => {
+          const key = art.toLowerCase();
+          if (!artistMap.has(key)) {
+            artistMap.set(key, {
+              id: art,
+              name: art,
+              image: getArtistImage(art, s.thumbnail_url),
+              songs: [s],
+            });
+          } else {
+            artistMap.get(key).songs.push(s);
+          }
+        });
+      });
+      list = Array.from(artistMap.values());
+    }
+    // Sort alphabetically A → Z by artist name
+    return [...list].sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
+    );
+  }, [artistsData, songs]);
+
+  // Other regional spotlights
+  const otherRegions = [
     "Punjabi",
     "Haryanvi",
-    "Bollywood",
-    "Hindi",
     "Indipop",
     "Bhojpuri",
     "Tamil",
@@ -129,17 +240,11 @@ const Home = () => {
     [regionVisible]
   );
 
-  /**
-   * Realtime load more handler:
-   * 1. Shows remaining songs in local memory first.
-   * 2. When end is reached, dynamically fetches the next page live from PagalWorld and saves to DB in real-time!
-   */
   const loadMoreRegion = useCallback(
     async (lang) => {
       const currVisible = getRegionVisible(lang);
       const localSongs = byLanguage(lang);
 
-      // If we still have unrevealed songs in local memory, reveal them immediately
       if (currVisible < localSongs.length) {
         setRegionVisible((prev) => ({
           ...prev,
@@ -148,23 +253,17 @@ const Home = () => {
         return;
       }
 
-      // If all local songs are displayed, trigger real-time on-demand scraping of the next page!
       const nextPage = regionPage[lang] ?? 2;
       setRegionScraping((prev) => ({ ...prev, [lang]: true }));
 
       try {
         const res = await songService.scrapeCategoryPage(lang, nextPage);
         if (res) {
-          // Always advance the page counter regardless of how many songs were returned
-          // (songs might already exist in DB from a previous scrape)
           setRegionPage((prev) => ({ ...prev, [lang]: nextPage + 1 }));
-
-          // Update hasMore from API — API knows total page count
           const moreAvailable = res.hasMore !== false;
           setRegionHasMore((prev) => ({ ...prev, [lang]: moreAvailable }));
 
           if (Array.isArray(res.songs) && res.songs.length > 0) {
-            // New songs found! Append to catalog and reveal more
             setRawSongs((prev) => {
               const existingUrls = new Set(prev.map((s) => (s.audio_url || "").toLowerCase()));
               const newSongs = res.songs.filter(
@@ -174,7 +273,6 @@ const Home = () => {
             });
             setRegionVisible((prev) => ({ ...prev, [lang]: currVisible + PAGE_SIZE }));
           }
-          // If 0 songs returned but hasMore=true, user can click again for next page
         } else {
           setRegionHasMore((prev) => ({ ...prev, [lang]: false }));
         }
@@ -189,6 +287,7 @@ const Home = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Header */}
       <div className="rounded-2xl border border-white/10 bg-[#141414] px-5 py-4">
         <p className="text-meta">{greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</p>
         <h1 className="text-display mt-1 text-white">Find your next favourite track</h1>
@@ -220,33 +319,112 @@ const Home = () => {
         </button>
       )}
 
-      {/* ── Fresh on Sangeet ── */}
-      <Section title="Fresh on Sangeet" eyebrow="Just added" status={sectionStatus} onRetry={() => window.location.reload()} id="fresh">
-        {fresh.slice(0, freshVisible).map((song, i) => (
-          <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
-            <SongCard song={song} queue={fresh} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-          </div>
-        ))}
-      </Section>
-      {sectionStatus === "ready" && (
-        <LoadMoreButton
-          onClick={() => setFreshVisible((v) => v + PAGE_SIZE)}
-          disabled={freshVisible >= fresh.length}
-          label="Load More"
-        />
-      )}
-
-      {recentlyPlayed.length > 0 && (
-        <Section title="Your Sound" eyebrow="Because you listened" status="ready">
-          {recentlyPlayed.slice(0, 12).map((song, i) => (
+      {/* ── 1. Fresh on Sangeet ── */}
+      <div id="fresh" className="space-y-3">
+        <Section title="Fresh on Sangeet" eyebrow="Latest releases first" status={sectionStatus} onRetry={() => window.location.reload()}>
+          {fresh.slice(0, freshVisible).map((song, i) => (
             <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
-              <SongCard song={song} queue={recentlyPlayed} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+              <SongCard song={song} queue={fresh} index={i} onAddToPlaylist={setAddToPlaylistSong} />
             </div>
           ))}
         </Section>
+        {sectionStatus === "ready" && fresh.length > freshVisible && (
+          <LoadMoreButton
+            onClick={() => setFreshVisible((v) => v + PAGE_SIZE)}
+            disabled={freshVisible >= fresh.length}
+            label="Load More"
+          />
+        )}
+      </div>
+
+      {/* ── 2. Bollywood Spotlight (Sorted Latest to Oldest) ── */}
+      {bollywoodSongs.length > 0 && (
+        <div id="bollywood-spotlight" className="space-y-3">
+          <Section
+            title="Bollywood Spotlight"
+            eyebrow="Latest releases first"
+            status="ready"
+          >
+            {bollywoodSongs.slice(0, bollywoodVisible).map((song, i) => (
+              <div key={song._id || song.audio_url || i} className="w-36 shrink-0 sm:w-40 md:w-44">
+                <SongCard song={song} queue={bollywoodSongs} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+              </div>
+            ))}
+          </Section>
+          {bollywoodSongs.length > bollywoodVisible && (
+            <LoadMoreButton
+              onClick={() => setBollywoodVisible((v) => v + PAGE_SIZE)}
+              disabled={bollywoodVisible >= bollywoodSongs.length}
+              label="Load More Bollywood"
+            />
+          )}
+        </div>
       )}
 
-      {/* ── Trending in India ── */}
+      {/* ── 3. Dedicated 90s Evergreen Bollywood Spotlight (1990–2000) ── */}
+      {ninetiesSongs.length > 0 && (
+        <div id="90s-spotlight">
+          <Section
+            title="90s Evergreen Bollywood"
+            eyebrow="Golden 90s Nostalgia (1990–2000)"
+            status="ready"
+          >
+            {ninetiesSongs.slice(0, ninetiesVisible).map((song, i) => (
+              <div key={`90s-${song._id || i}`} className="w-36 shrink-0 sm:w-40 md:w-44">
+                <SongCard song={song} queue={ninetiesSongs} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+              </div>
+            ))}
+          </Section>
+          {ninetiesVisible < ninetiesSongs.length && (
+            <LoadMoreButton
+              onClick={() => setNinetiesVisible((v) => v + PAGE_SIZE)}
+              label="Load More 90s Classics"
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── 4. Dedicated 2000s Golden Era Bollywood Spotlight (2000–2010) ── */}
+      {twothousandsSongs.length > 0 && (
+        <div id="2000s-spotlight">
+          <Section
+            title="2000s Golden Era Bollywood"
+            eyebrow="Melodies of 2000–2010 (KK, Shaan, Mohit Chauhan)"
+            status="ready"
+          >
+            {twothousandsSongs.slice(0, twothousandsVisible).map((song, i) => (
+              <div key={`2000s-${song._id || i}`} className="w-36 shrink-0 sm:w-40 md:w-44">
+                <SongCard song={song} queue={twothousandsSongs} index={i} onAddToPlaylist={setAddToPlaylistSong} />
+              </div>
+            ))}
+          </Section>
+          {twothousandsVisible < twothousandsSongs.length && (
+            <LoadMoreButton
+              onClick={() => setTwothousandsVisible((v) => v + PAGE_SIZE)}
+              label="Load More 2000s Hits"
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── 5. Albums & Soundtracks ── */}
+      {albumsData.length > 0 && (
+        <div id="albums">
+          <Section title="Albums &amp; Soundtracks" eyebrow="Browse by movie &amp; album" status="ready">
+            {albumsData.slice(0, albumsVisible).map((album) => (
+              <AlbumCard key={album._id || album.name} album={album} />
+            ))}
+          </Section>
+          {albumsVisible < albumsData.length && (
+            <LoadMoreButton
+              onClick={() => setAlbumsVisible((v) => v + 20)}
+              label="Load More Albums"
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── 6. Trending in India ── */}
       <Section title="Trending in India" eyebrow="Hot right now" status={sectionStatus} seeAllHref="/discover" id="trending">
         {trending.slice(0, trendingVisible).map((song, i) => (
           <div key={song._id || i} className="w-36 shrink-0 sm:w-40 md:w-44">
@@ -262,12 +440,12 @@ const Home = () => {
         />
       )}
 
-      {/* ── Regional Spotlights with Realtime Scraping on Load More ── */}
-      {status === "ready" && regions.length === 0 ? (
+      {/* ── 7. Regional Spotlights (Punjabi, Haryanvi, Indipop, etc.) ── */}
+      {status === "ready" && otherRegions.length === 0 ? (
         <EmptyState title="No regional music yet" description="Regional collections will appear once songs are tagged with a language." />
       ) : (
         <div id="regional" className="scroll-mt-24 space-y-4 md:space-y-6">
-          {regions.map((region) => {
+          {otherRegions.map((region) => {
             const visible = getRegionVisible(region.lang);
             const remaining = region.songs.length - visible;
             const isScraping = regionScraping[region.lang] || false;
@@ -294,16 +472,28 @@ const Home = () => {
         </div>
       )}
 
-      <Section
-        title="Artists to Explore"
-        status="ready"
-        id="artists"
-      >
-        {FEATURED_ARTISTS.map((artist) => (
-          <ArtistCard key={artist.name} artist={artist} />
-        ))}
-      </Section>
+      {/* ── 8. Artists to Explore (ALL Artists with Pagination) ── */}
+      {allArtists.length > 0 && (
+        <div id="artists">
+          <Section
+            title="Artists to Explore"
+            eyebrow={`Discover ${allArtists.length} Artists`}
+            status="ready"
+          >
+            {allArtists.slice(0, artistsVisible).map((artist) => (
+              <ArtistCard key={artist.name || artist.id} artist={artist} />
+            ))}
+          </Section>
+          {artistsVisible < allArtists.length && (
+            <LoadMoreButton
+              onClick={() => setArtistsVisible((v) => v + 24)}
+              label={`Load More Artists (${allArtists.length - artistsVisible} remaining)`}
+            />
+          )}
+        </div>
+      )}
 
+      {/* ── 9. Recently Played ── */}
       {recentlyPlayed.length > 0 && (
         <Section title="Recently Played" status="ready" seeAllHref="/library/recent">
           {recentlyPlayed.slice(0, 10).map((song, i) => (

@@ -102,6 +102,46 @@ export const PlayerProvider = ({ children }) => {
     setRepeatMode((prev) => REPEAT_MODES[(REPEAT_MODES.indexOf(prev) + 1) % REPEAT_MODES.length]);
   }, []);
 
+  const addToQueue = useCallback((rawSong) => {
+    const song = normalizeSong(rawSong);
+    if (!song.audio_url) return false;
+
+    setSongList((prev) => {
+      if (prev.length === 0) {
+        setCurrentSong(song);
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        onPlayRef.current?.(song);
+        return [song];
+      }
+      return [...prev, song];
+    });
+    return true;
+  }, []);
+
+  const playNextInQueue = useCallback(
+    (rawSong) => {
+      const song = normalizeSong(rawSong);
+      if (!song.audio_url) return false;
+
+      setSongList((prev) => {
+        if (prev.length === 0) {
+          setCurrentSong(song);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+          onPlayRef.current?.(song);
+          return [song];
+        }
+        const insertIndex = currentIndex + 1;
+        const nextList = [...prev];
+        nextList.splice(insertIndex, 0, song);
+        return nextList;
+      });
+      return true;
+    },
+    [currentIndex]
+  );
+
   const removeFromQueue = useCallback((index) => {
     setSongList((prev) => prev.filter((_, i) => i !== index));
     setCurrentIndex((prev) => (index < prev ? prev - 1 : prev));
@@ -141,6 +181,8 @@ export const PlayerProvider = ({ children }) => {
       playAt,
       playNext,
       playPrevious,
+      addToQueue,
+      playNextInQueue,
       onTrackEnd,
       removeFromQueue,
       clearQueue,
@@ -165,6 +207,8 @@ export const PlayerProvider = ({ children }) => {
       playAt,
       playNext,
       playPrevious,
+      addToQueue,
+      playNextInQueue,
       onTrackEnd,
       removeFromQueue,
       clearQueue,

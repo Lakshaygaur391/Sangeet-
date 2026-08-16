@@ -18,16 +18,56 @@ export function normalizeSong(song) {
     DEFAULT_THUMBNAIL
   ).trim();
 
+  let year = String(plainSong.year || plainSong.releaseYear || "").trim();
+  if (!year) {
+    const m = audioUrl.match(/\/(?:320-download|128-downloads)\/(\d+)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 54000) year = "2026";
+      else if (n >= 50000) year = "2025";
+      else if (n >= 40000) year = "2024";
+      else if (n >= 30000) year = "2023";
+      else if (n >= 20000) year = "2022";
+      else if (n >= 10000) year = "2010s";
+      else year = "90s";
+    }
+  }
+
   return {
     ...plainSong,
     _id: plainSong._id || plainSong.id,
     id: plainSong.id || plainSong._id,
     title: String(plainSong.title || plainSong.name || "Unknown Song").trim(),
     artist: String(plainSong.artist || plainSong.singer || "Unknown Artist").trim(),
+    album: String(plainSong.album || "Single").trim(),
+    year: year || "",
+    _year: year || "",
     language: plainSong.language || "",
     audio_url: audioUrl,
     thumbnail_url: thumbnailUrl,
   };
+}
+
+export function getSongDecade(song) {
+  const yrStr = String(song?.year || song?._year || "").trim();
+  const yr = parseInt(yrStr, 10);
+  if (!isNaN(yr)) {
+    if (yr >= 2026) return "2026";
+    if (yr >= 2020 && yr <= 2025) return "2020s";
+    if (yr >= 2010 && yr <= 2019) return "2010s";
+    if (yr >= 2000 && yr <= 2009) return "2000s";
+    if (yr >= 1990 && yr <= 1999) return "90s";
+    if (yr < 1990) return "retro";
+  }
+  if (yrStr === "2010s") return "2010s";
+  if (yrStr === "90s" || yrStr === "Retro") {
+    const art = (song?.artist || "").toLowerCase();
+    if (art.includes("kk") || art.includes("shaan") || art.includes("sunidhi") || art.includes("mohit chauhan") || art.includes("himesh")) {
+      return "2000s";
+    }
+    return "90s";
+  }
+  return "2020s";
 }
 
 export function formatTime(time) {
@@ -35,6 +75,36 @@ export function formatTime(time) {
   const minutes = Math.floor(time / 60);
   const seconds = Math.floor(time % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
+}
+
+export function isArtistMatch(songArtist = "", targetArtist = "", songTitle = "") {
+  if (!targetArtist) return false;
+  const s = String(songArtist || "").toLowerCase().trim();
+  const t = String(targetArtist || "").toLowerCase().trim();
+  if (!s && !songTitle) return false;
+  if (s === t) return true;
+
+  // 1. Split artist string by common separators (comma, slash, ampersand, ft, feat, etc.)
+  const tokens = s
+    .split(/[,/;&|]|\b(?:ft\.?|feat\.?|featuring|with|and|&)\b/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (tokens.includes(t)) return true;
+  if (tokens.some((tok) => tok === t || tok.startsWith(t) || t.startsWith(tok))) return true;
+
+  // 2. Substring normalized matching
+  const cleanS = s.replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+  const cleanT = t.replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleanS.includes(cleanT) || cleanT.includes(cleanS)) return true;
+
+  // 3. Fallback: check if artist name appears in song title (e.g. "Tera Naam - Saaj Bhatt")
+  if (songTitle) {
+    const cleanTitle = String(songTitle).toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ");
+    if (cleanTitle.includes(cleanT)) return true;
+  }
+
+  return false;
 }
 
 export function scoreSongMatch(song, query) {

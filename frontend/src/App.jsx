@@ -6,6 +6,12 @@ import { LibraryProvider } from "./context/LibraryContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppShell from "./components/layout/AppShell";
 import PlaybackBridge from "./PlaybackBridge";
+import { prefetchCatalog, prefetchAlbums, prefetchArtists } from "./services/songService";
+
+// Pre-warm catalog, album, and artist caches immediately on startup
+prefetchCatalog();
+prefetchAlbums();
+prefetchArtists();
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";

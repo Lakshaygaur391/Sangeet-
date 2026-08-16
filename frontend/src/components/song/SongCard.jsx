@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { IoPlay, IoPause, IoEllipsisHorizontal, IoAddCircleOutline } from "react-icons/io5";
+import { useState, useRef, useEffect, memo } from "react";
+import { IoPlay, IoPause, IoEllipsisHorizontal, IoAddCircleOutline, IoListOutline, IoPlaySkipForwardOutline } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
@@ -10,10 +10,10 @@ import { normalizeSong, songId } from "../../lib/media";
 // Premium artwork-forward song card for grid layouts (Home, Discover, Search).
 const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
   const song = normalizeSong(rawSong);
-  const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
+  const { currentSong, isPlaying, playSong, setIsPlaying, addToQueue, playNextInQueue } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { isAuthenticated } = useAuth();
-  const { openAuthPrompt } = useUI();
+  const { openAuthPrompt, toast } = useUI();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -30,6 +30,24 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
     onAddToPlaylist?.(song);
   };
 
+  const handleAddToQueue = (e) => {
+    e?.stopPropagation();
+    setMenuOpen(false);
+    const ok = addToQueue(song);
+    if (ok) {
+      toast(`Added "${song.title}" to queue`, "success");
+    }
+  };
+
+  const handlePlayNext = (e) => {
+    e?.stopPropagation();
+    setMenuOpen(false);
+    const ok = playNextInQueue(song);
+    if (ok) {
+      toast(`Playing "${song.title}" next`, "success");
+    }
+  };
+
   useEffect(() => {
     if (!menuOpen) return;
     const close = (e) => {
@@ -41,7 +59,7 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
 
   const handlePlay = () => {
     if (isActive) {
-      // Already playing this song — just toggle pause/play (no auth needed)
+      // Already playing this song — just toggle pause/play
       setIsPlaying(!isPlaying);
       return;
     }
@@ -55,7 +73,7 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
 
   return (
     <div
-      className={`group relative w-full overflow-hidden rounded-2xl border bg-[#161616] text-white shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/10 ${
+      className={`song-card-item group relative w-full overflow-hidden rounded-2xl border bg-[#161616] text-white shadow-md shadow-black/20 transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-500/10 ${
         isActive ? "border-amber-400/40 ring-1 ring-amber-400/30" : "border-white/10"
       }`}
     >
@@ -70,11 +88,12 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
           src={song.thumbnail_url}
           alt=""
           loading="lazy"
-          className={`aspect-square w-full object-cover transition ${unavailable ? "grayscale opacity-50" : ""}`}
+          decoding="async"
+          className={`aspect-square w-full object-cover transition-opacity duration-200 ${unavailable ? "grayscale opacity-50" : ""}`}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
         <span
-          className={`absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg shadow-black/40 transition ${
+          className={`absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg shadow-black/40 transition duration-200 ${
             isActive ? "opacity-100" : "translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
           }`}
         >
@@ -119,15 +138,31 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#1c1c1c] py-1 shadow-xl shadow-black/40"
+                className="absolute right-0 top-8 z-30 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#1c1c1c] py-1 shadow-xl shadow-black/60"
               >
                 <button
                   role="menuitem"
                   type="button"
-                  onClick={handleAddToPlaylist}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/85 hover:bg-white/5"
+                  onClick={handleAddToQueue}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10 hover:text-amber-300 transition-colors"
                 >
-                  <IoAddCircleOutline /> Add to playlist
+                  <IoListOutline className="text-base text-amber-400" /> Add to queue
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={handlePlayNext}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10 hover:text-amber-300 transition-colors"
+                >
+                  <IoPlaySkipForwardOutline className="text-base text-amber-400" /> Play next
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={handleAddToPlaylist}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10 hover:text-amber-300 transition-colors"
+                >
+                  <IoAddCircleOutline className="text-base text-amber-400" /> Add to playlist
                 </button>
               </div>
             )}
@@ -138,4 +173,4 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
   );
 };
 
-export default SongCard;
+export default memo(SongCard);

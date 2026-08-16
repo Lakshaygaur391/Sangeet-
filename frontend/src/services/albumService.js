@@ -1,11 +1,14 @@
 import api, { safeRequest } from "./api";
 
-// Album endpoints are optional — if the backend doesn't implement them yet,
-// every call here resolves to a safe empty value instead of throwing, and
-// the Album page renders an empty state rather than crashing.
 const albumService = {
-  getAll: () => safeRequest(api.get("/api/albums"), []),
-  getById: (albumId) => safeRequest(api.get(`/api/albums/${albumId}`), null),
+  getAll: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return safeRequest(api.get(`/api/albums${qs ? `?${qs}` : ""}`), []);
+  },
+  getById: (albumName) =>
+    safeRequest(api.get(`/api/albums/${encodeURIComponent(albumName)}`), null),
+  getYears: (language = "") =>
+    safeRequest(api.get(`/api/years${language ? `?language=${encodeURIComponent(language)}` : ""}`), []),
 };
 
 export default albumService;

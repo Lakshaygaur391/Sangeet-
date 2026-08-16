@@ -117,23 +117,37 @@ select:focus-visible {
   color: white;
 }
 
-::-webkit-scrollbar { height: 8px; width: 8px; }
-::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); }
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
 
 .scrollbar-none::-webkit-scrollbar { display: none; }
-.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 
+/* Ultra-smooth 60/120fps hardware-accelerated horizontal track */
 .smooth-horizontal-scroll {
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
+  scroll-behavior: auto; /* Managed programmatically via RAF / native momentum */
+  transform: translateZ(0);
+  will-change: scroll-position;
 }
 
-.smooth-horizontal-scroll > * {
-  scroll-snap-align: start;
+/* Card rendering performance optimization */
+.song-card-item,
+.artist-card-item {
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 176px 240px;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.song-card-item img,
+.artist-card-item img {
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 /* ===================== ANIMATIONS ===================== */

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoPlay, IoCheckmarkCircle } from "react-icons/io5";
 import { getArtistImage, avatarFor } from "../../lib/media";
@@ -27,15 +27,16 @@ const ArtistCard = ({ artist, onPlay }) => {
     <button
       type="button"
       onClick={() => navigate(`/artist/${encodeURIComponent(rawName)}`)}
-      className="group relative flex w-36 shrink-0 flex-col items-center rounded-2xl border border-white/5 bg-[#141416] p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/30 hover:bg-[#1a1a1e] hover:shadow-xl hover:shadow-amber-500/10 sm:w-40 md:w-44"
+      className="artist-card-item group relative flex w-36 shrink-0 flex-col items-center rounded-2xl border border-white/5 bg-[#141416] p-3 text-center transition-transform duration-200 hover:-translate-y-1 hover:border-amber-500/30 hover:bg-[#1a1a1e] hover:shadow-lg hover:shadow-amber-500/10 sm:w-40 md:w-44"
     >
-      <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-full border-2 border-white/10 shadow-md transition-all duration-300 group-hover:border-amber-400 group-hover:shadow-[0_0_20px_rgba(234,179,74,0.25)]">
+      <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-full border-2 border-white/10 shadow-md transition-all duration-200 group-hover:border-amber-400">
         <img
           src={imgSrc}
           alt={rawName}
           onError={handleImageError}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
         {onPlay && (
           <span
@@ -45,7 +46,7 @@ const ArtistCard = ({ artist, onPlay }) => {
               e.stopPropagation();
               onPlay(artist);
             }}
-            className="absolute bottom-1 right-1 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-amber-400 text-black opacity-0 shadow-lg transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
+            className="absolute bottom-1 right-1 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-amber-400 text-black opacity-0 shadow-lg transition duration-200 group-hover:translate-y-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
           >
             <IoPlay className="translate-x-0.5 text-lg" />
           </span>
@@ -67,4 +68,4 @@ const ArtistCard = ({ artist, onPlay }) => {
   );
 };
 
-export default ArtistCard;
+export default memo(ArtistCard);

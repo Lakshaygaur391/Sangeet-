@@ -4,10 +4,6 @@ import api, { safeRequest } from "./api";
 const withAudio = (songs) =>
   Array.isArray(songs) ? songs.filter((s) => s?.audio_url) : [];
 
-/**
- * Map human-readable language labels used in UI to the PagalWorld category URL slug.
- * e.g. "Instagram viral song" -> "instagram-viral-song"
- */
 const LANG_TO_SLUG = {
   "punjabi": "punjabi",
   "haryanvi": "haryanvi",
@@ -30,6 +26,70 @@ function langToSlug(lang) {
   return LANG_TO_SLUG[key] || key.replace(/\s+/g, "-");
 }
 
+// ── Module-level singleton cache ──────────────────────────────────────────────
+// Lives for the entire browser session — survives React unmounts/remounts.
+// Home page reads from here instantly on every re-visit (zero loading delay).
+
+let _catalogCache = null;    // resolved song array
+let _catalogPromise = null;  // in-flight promise (prevents duplicate network calls)
+let _albumsCache = null;
+let _albumsPromise = null;
+let _artistsCache = null;
+let _artistsPromise = null;
+
+/** Pre-warm caches as early as possible (called from App.jsx on startup) */
+export function prefetchCatalog() {
+  if (_catalogCache || _catalogPromise) return;
+  _catalogPromise = safeRequest(api.get("/api/songs"), []).then((data) => {
+    _catalogCache = withAudio(data);
+    _catalogPromise = null;
+    return _catalogCache;
+  });
+}
+
+export function prefetchAlbums() {
+  if (_albumsCache || _albumsPromise) return;
+  _albumsPromise = safeRequest(api.get("/api/albums"), []).then((data) => {
+    _albumsCache = Array.isArray(data) ? data : [];
+    _albumsPromise = null;
+    return _albumsCache;
+  });
+}
+
+export function prefetchArtists() {
+  if (_artistsCache || _artistsPromise) return;
+  _artistsPromise = safeRequest(api.get("/api/artists"), []).then((data) => {
+    _artistsCache = Array.isArray(data) ? data : [];
+    _artistsPromise = null;
+    return _artistsCache;
+  });
+}
+
+/** Append live-scraped songs to the catalog cache so Home stays fresh */
+export function appendToCatalogCache(newSongs) {
+  if (!_catalogCache) return;
+  const existingUrls = new Set(_catalogCache.map((s) => (s.audio_url || "").toLowerCase()));
+  const fresh = withAudio(newSongs).filter(
+    (s) => s.audio_url && !existingUrls.has(s.audio_url.toLowerCase())
+  );
+  if (fresh.length > 0) _catalogCache = [..._catalogCache, ...fresh];
+}
+
+/** Synchronous cache getters for instant, zero-delay component state initialization */
+export function getCachedCatalogSync() {
+  return _catalogCache;
+}
+
+export function getCachedAlbumsSync() {
+  return _albumsCache;
+}
+
+export function getCachedArtistsSync() {
+  return _artistsCache;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const clientSearchCache = new Map();
 const MAX_CLIENT_CACHE_ENTRIES = 120;
 
@@ -39,10 +99,43 @@ export function getCachedSearchResults(query) {
 }
 
 const songService = {
-  /** Fetch all songs (full list, no pagination) */
-  getAll: async () => withAudio(await safeRequest(api.get("/api/songs"), [])),
+  /** Returns catalog instantly from cache on re-visits; fetches only once per session */
+  getAll: () => {
+    if (_catalogCache) return Promise.resolve(_catalogCache);
+    if (_catalogPromise) return _catalogPromise;
+    _catalogPromise = safeRequest(api.get("/api/songs"), []).then((data) => {
+      _catalogCache = withAudio(data);
+      _catalogPromise = null;
+      return _catalogCache;
+    });
+    return _catalogPromise;
+  },
 
-  /** Fetch a paginated page of songs. Returns { songs, total, page, limit, hasMore } or null on error. */
+  /** Returns albums instantly from cache on re-visits */
+  getAlbums: () => {
+    if (_albumsCache) return Promise.resolve(_albumsCache);
+    if (_albumsPromise) return _albumsPromise;
+    _albumsPromise = safeRequest(api.get("/api/albums"), []).then((data) => {
+      _albumsCache = Array.isArray(data) ? data : [];
+      _albumsPromise = null;
+      return _albumsCache;
+    });
+    return _albumsPromise;
+  },
+
+  /** Returns all artists dynamically with their songs and photos */
+  getArtists: () => {
+    if (_artistsCache) return Promise.resolve(_artistsCache);
+    if (_artistsPromise) return _artistsPromise;
+    _artistsPromise = safeRequest(api.get("/api/artists"), []).then((data) => {
+      _artistsCache = Array.isArray(data) ? data : [];
+      _artistsPromise = null;
+      return _artistsCache;
+    });
+    return _artistsPromise;
+  },
+
+  /** Fetch a paginated page of songs. Returns { songs, total, page, limit, hasMore } or null */
   getPage: async (page = 1, limit = 50) => {
     const res = await safeRequest(api.get("/api/songs", { params: { page, limit } }), null);
     if (!res || !Array.isArray(res.songs)) return null;
@@ -63,9 +156,7 @@ const songService = {
       null
     );
 
-    if (res === null) {
-      return null;
-    }
+    if (res === null) return null;
 
     const songs = withAudio(res);
     if (clientSearchCache.size >= MAX_CLIENT_CACHE_ENTRIES) {
@@ -76,21 +167,20 @@ const songService = {
     return songs;
   },
 
-  /** Real-time on-demand scraping of a category page (/category/<name>/page/<page>/) */
+  /** Real-time on-demand scraping of a category page */
   scrapeCategoryPage: async (category, page = 1) => {
     const slug = langToSlug(category);
     const res = await safeRequest(
       api.get(`/api/scrape/category/${encodeURIComponent(slug)}`, {
         params: { page },
-        timeout: 90000, // 90s — scraping multiple album pages can be slow
+        timeout: 90000,
       }),
       null
     );
     if (!res || !Array.isArray(res.songs)) return { success: false, songs: [], hasMore: false };
-    return {
-      ...res,
-      songs: withAudio(res.songs),
-    };
+    const songs = withAudio(res.songs);
+    appendToCatalogCache(songs); // keep cache warm with new songs
+    return { ...res, songs };
   },
 };
 

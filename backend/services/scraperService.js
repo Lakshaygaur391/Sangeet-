@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 import * as cheerio from "cheerio";
 import https from "https";
 import fs from "fs";
@@ -9,7 +9,7 @@ import Song from "../models/Song.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = "https://pagalworld.is";
+const BASE_URL = "https://pagalnew.com";
 
 // Ultra-fast HTTP agent with 60 sockets and persistent keepAlive connections
 const httpsAgent = new https.Agent({
@@ -25,73 +25,20 @@ const HEADERS = {
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
   "Accept-Encoding": "gzip, deflate, br",
+  Referer: "https://pagalnew.com/",
 };
 
 const CATEGORY_MAP = {
-  punjabi: `${BASE_URL}/category/punjabi/`,
-  haryanvi: `${BASE_URL}/category/haryanvi/`,
-  bollywood: `${BASE_URL}/category/bollywood/`,
-  hindi: `${BASE_URL}/category/hindi/`,
-  indipop: `${BASE_URL}/category/indipop/`,
-  bhojpuri: `${BASE_URL}/category/bhojpuri/`,
-  tamil: `${BASE_URL}/category/tamil/`,
-  telugu: `${BASE_URL}/category/telugu/`,
-  malayalam: `${BASE_URL}/category/malayalam/`,
-  kannada: `${BASE_URL}/category/kannada/`,
-  english: `${BASE_URL}/category/english/`,
-  marathi: `${BASE_URL}/category/marathi/`,
-  "instagram-viral-song": `${BASE_URL}/category/instagram-viral-song/`,
+  bollywood: { url: `${BASE_URL}/category/bollywood-tracks`, page_slug: "bollywood-mp3-songs", lang: "Bollywood" },
+  indipop: { url: `${BASE_URL}/category/indipop-mp3-tracks`, page_slug: "indipop-mp3-tracks", lang: "Indipop" },
+  punjabi: { url: `${BASE_URL}/category/punjabi-mp3-tracks`, page_slug: "punjabi-mp3-tracks", lang: "Punjabi" },
+  haryanvi: { url: `${BASE_URL}/category/haryanvi-mp3-tracks`, page_slug: "haryanvi-mp3-tracks", lang: "Haryanvi" },
+  bhojpuri: { url: `${BASE_URL}/category/bhojpuri-mp3-tracks`, page_slug: "bhojpuri-mp3-tracks", lang: "Bhojpuri" },
 };
 
 function sanitizeText(text) {
   if (!text) return "";
   return String(text).replace(/\s+/g, " ").trim();
-}
-
-/**
- * Extract only the clean singer name from a song detail page.
- */
-function extractCleanArtist($, mainContent) {
-  let artist = "";
-
-  // Strategy 1: <td> label/value pairs in table rows
-  mainContent.find("tr").each((_, row) => {
-    const cells = $(row).find("td");
-    if (cells.length >= 2) {
-      const label = sanitizeText($(cells[0]).text());
-      if (/^Singer\(s\)|^Artist\(s\)|^Singers?$/i.test(label)) {
-        const rawArtist = sanitizeText($(cells[1]).text());
-        if (rawArtist && rawArtist.length < 200) {
-          artist = rawArtist;
-          return false;
-        }
-      }
-    }
-  });
-
-  // Strategy 2: direct text of elements matching Singer(s) label
-  if (!artist) {
-    mainContent.find("li, p, div, span").each((_, el) => {
-      const raw = $(el).clone().find("*").remove().end().text();
-      const cleaned = sanitizeText(raw);
-      const m = cleaned.match(/^(?:Singer\(s\)|Artist\(s\)|Singers?)\s*[:\-]?\s*(.+)$/i);
-      if (m && m[1] && m[1].length < 200) {
-        artist = m[1].trim();
-        return false;
-      }
-    });
-  }
-
-  // Strategy 3: meta description "sung by <Artist>"
-  if (!artist) {
-    const metaDesc = $("meta[name='description']").attr("content") || "";
-    const m = metaDesc.match(/sung by\s+([^.\n]+)/i);
-    if (m) artist = m[1].split(" and ")[0].trim();
-  }
-
-  artist = sanitizeText(artist);
-  if (artist.length > 150) artist = artist.substring(0, 150).replace(/,?[^,]*$/, "").trim();
-  return artist || "Various Artists";
 }
 
 function encodeAudioUrl(rawUrl) {
@@ -106,7 +53,7 @@ function encodeAudioUrl(rawUrl) {
 }
 
 /**
- * Fetch and extract details of a single song detail page.
+ * Fetch and extract details of a single song detail page from pagalnew.com.
  */
 export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi") {
   if (!songPageUrl || (!songPageUrl.startsWith("http://") && !songPageUrl.startsWith("https://"))) {
@@ -116,18 +63,21 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
     const res = await axios.get(songPageUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 5000,
+      timeout: 8000,
     });
     if (res.status !== 200 || !res.data) return null;
 
     const $ = cheerio.load(res.data);
-    const mainContent = $(".main-content").length ? $(".main-content") : $("body");
 
     // 1. Title
     let title = "";
-    const h1 = mainContent.find("h1").first();
+    const h1 = $("h1").first();
     if (h1.length) {
-      title = sanitizeText(h1.text().replace(/\s*(?:song\s*download|mp3\s*download|song|mp3)\s*$/i, ""));
+      title = sanitizeText(
+        h1.text()
+          .replace(/\s+Song\s*-\s*.+$/i, "")
+          .replace(/\s*(?:song\s*download|mp3\s*download|song|mp3)\s*$/i, "")
+      );
     }
     if (!title) {
       const titleTag = $("title").text();
@@ -135,51 +85,65 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
     }
 
     // 2. Artist
-    const artist = extractCleanArtist($, mainContent);
+    let artist = "";
+    const singerTag = $("b").filter((_, el) => /Singer\(s\)|Singers?/i.test($(el).text()));
+    if (singerTag.length) {
+      const raw = singerTag[0].nextSibling?.nodeValue || $(singerTag[0]).parent().text();
+      artist = sanitizeText(raw.replace(/^.*Singer\(s\)?[:\s]*/i, ""));
+    }
+    if (!artist) {
+      const metaDesc = $("meta[name='description']").attr("content") || "";
+      const m = metaDesc.match(/(?:Sung by|Singer[s]?\s*:)\s*([^,.]+)/i);
+      if (m) artist = sanitizeText(m[1]);
+    }
+    artist = artist || "Various Artists";
 
     // 3. Language
     let language = defaultLanguage;
-    const breadcrumbLink = $(".breadcrumb a[href*='/category/']").first();
-    if (breadcrumbLink.length) {
-      const rawLang = sanitizeText(breadcrumbLink.text());
-      if (rawLang) language = rawLang.charAt(0).toUpperCase() + rawLang.slice(1);
-    }
+    $(".breadcrumb a[href*='/category/']").each((_, el) => {
+      const raw = sanitizeText($(el).text()).replace(/\s*(?:mp3|songs?|music|tracks?)\s*.*$/i, "");
+      if (raw) {
+        language = raw.charAt(0).toUpperCase() + raw.slice(1);
+        return false;
+      }
+    });
 
     // 4. Thumbnail
     let thumbnailUrl = "";
-    mainContent.find("img").each((_, el) => {
-      const src = $(el).attr("data-src") || $(el).attr("data-original") || $(el).attr("src") || "";
-      if (src.includes("500x500") && src.includes("uploads") && !thumbnailUrl) {
+    $("img").each((_, el) => {
+      const src = $(el).attr("data-src") || $(el).attr("src") || "";
+      if (src.includes("coverimages") && src.includes("500-500")) {
         thumbnailUrl = new URL(src, BASE_URL).toString();
-      } else if (src.includes("uploads") && src.includes("wp-content") && !thumbnailUrl) {
-        thumbnailUrl = new URL(src, BASE_URL).toString();
+        return false;
       }
     });
-
-    // 5. Audio URL from data-file attributes
-    let audioUrl = "";
-    const candidates = [];
-    $("[data-file]").each((_, el) => {
-      const dFile = ($(el).attr("data-file") || "").trim();
-      const dYear = ($(el).attr("data-year") || "").trim();
-      const dMonth = ($(el).attr("data-month") || "").trim();
-      if (dFile) {
-        const streamUrl = dYear && dMonth
-          ? `https://pagalworld.is/wp-content/uploads/${dYear}/${dMonth}/${dFile}`
-          : `https://pagalworld.is/wp-content/uploads/${dFile}`;
-        candidates.push({ streamUrl, dFile });
-      }
-    });
-
-    for (const cand of candidates) {
-      if (cand.dFile.includes("320")) { audioUrl = cand.streamUrl; break; }
+    if (!thumbnailUrl) {
+      $("img").each((_, el) => {
+        const src = $(el).attr("data-src") || $(el).attr("src") || "";
+        if (src.includes("coverimages") && /\.(jpg|png|webp)/i.test(src)) {
+          thumbnailUrl = new URL(src, BASE_URL).toString();
+          return false;
+        }
+      });
     }
-    if (!audioUrl && candidates.length > 0) audioUrl = candidates[0].streamUrl;
 
+    // 5. Audio URL (Prefer 320 download link, fallback to audio element, fallback to 128)
+    let audioUrl = "";
+    $("a[href]").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      if (href.includes("/320-download/")) {
+        audioUrl = new URL(href, BASE_URL).toString();
+        return false;
+      }
+    });
     if (!audioUrl) {
-      mainContent.find("a[href]").each((_, el) => {
+      const audioSrc = $("audio").attr("src");
+      if (audioSrc) audioUrl = new URL(audioSrc, BASE_URL).toString();
+    }
+    if (!audioUrl) {
+      $("a[href]").each((_, el) => {
         const href = $(el).attr("href") || "";
-        if (href.includes("/wp-content/uploads/") && href.toLowerCase().endsWith(".mp3")) {
+        if (href.includes("/128-downloads/")) {
           audioUrl = new URL(href, BASE_URL).toString();
           return false;
         }
@@ -193,7 +157,8 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
       artist,
       language,
       audio_url: encodeAudioUrl(audioUrl),
-      thumbnail_url: thumbnailUrl ||
+      thumbnail_url:
+        thumbnailUrl ||
         "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=60",
       youtube_url: "",
     };
@@ -203,7 +168,7 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
 }
 
 /**
- * Fetch all song page URLs from an album page.
+ * Fetch all song page URLs from a pagalnew.com album page.
  */
 export async function getSongsFromAlbum(albumUrl) {
   const songLinks = [];
@@ -211,14 +176,13 @@ export async function getSongsFromAlbum(albumUrl) {
     const res = await axios.get(albumUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 5000,
+      timeout: 8000,
     });
     if (res.status !== 200 || !res.data) return songLinks;
     const $ = cheerio.load(res.data);
-    const mainContent = $(".main-content").length ? $(".main-content") : $("body");
-    mainContent.find("a[href]").each((_, el) => {
+    $("a[href]").each((_, el) => {
       const href = $(el).attr("href") || "";
-      if (href.includes("/song/") && href.includes("-mp3-download")) {
+      if (href.includes("/songs/") && href.endsWith(".html")) {
         const fullUrl = new URL(href, BASE_URL).toString();
         if (!songLinks.includes(fullUrl)) songLinks.push(fullUrl);
       }
@@ -231,39 +195,37 @@ export async function getSongsFromAlbum(albumUrl) {
 
 /**
  * Scrape a specific category page in real-time and save new songs to DB + songs.json.
- *
- * Highly optimized with:
- *   1. Connection pooling (60 sockets, gzip/br compression, keepAlive)
- *   2. Parallel album crawling (up to 15 albums at once with immediate collection)
- *   3. High detail concurrency (24 parallel requests)
- *   4. High-performance single-roundtrip MongoDB bulkWrite
  */
 export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
   const catKey = (categoryKey || "punjabi").toLowerCase().trim();
-  const baseUrl = CATEGORY_MAP[catKey] || `${BASE_URL}/category/${catKey}/`;
-  const langLabel = catKey === "instagram-viral-song"
-    ? "Instagram viral song"
-    : catKey.charAt(0).toUpperCase() + catKey.slice(1);
-
-  const pageUrl = pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/+$/, "")}/page/${pageNum}/`;
+  const catInfo = CATEGORY_MAP[catKey] || {
+    url: `${BASE_URL}/category/${catKey}`,
+    page_slug: catKey,
+    lang: catKey.charAt(0).toUpperCase() + catKey.slice(1),
+  };
+  const langLabel = catInfo.lang;
+  const pageUrl = pageNum <= 1 ? catInfo.url : `${BASE_URL}/category/${catInfo.page_slug}/${pageNum}`;
   const MAX_SONGS_PER_SCRAPE = 50;
   let maxPages = 1;
 
-  // ── Step 1: Category listing → collect album links ────────────────────────
+  // â”€â”€ Step 1: Category listing â†’ collect album links and direct song links â”€â”€
   const albumUrls = [];
+  const directSongUrls = [];
+
   try {
     const res = await axios.get(pageUrl, {
       headers: HEADERS,
       httpsAgent,
-      timeout: 6000,
+      timeout: 8000,
     });
     if (res.status !== 200 || !res.data) {
       return { success: false, message: `HTTP ${res.status}`, songs: [], hasMore: false };
     }
     const $ = cheerio.load(res.data);
 
-    $("a[href*='/page/']").each((_, el) => {
-      const m = ($(el).attr("href") || "").match(/\/page\/(\d+)\//);
+    $("a[href]").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const m = href.match(/\/category\/[^/]+\/(\d+)/);
       if (m) {
         const n = parseInt(m[1], 10);
         if (n > maxPages) maxPages = n;
@@ -271,13 +233,20 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     });
 
     const seenAlbums = new Set();
+    const seenSongs = new Set();
+
     $("a[href]").each((_, el) => {
       const href = $(el).attr("href") || "";
-      if (href.includes("/album/") && !href.endsWith("/album/")) {
-        const full = new URL(href, BASE_URL).toString();
+      const full = new URL(href, BASE_URL).toString();
+      if (href.includes("/album/") && href.endsWith(".html")) {
         if (!seenAlbums.has(full)) {
           seenAlbums.add(full);
           albumUrls.push(full);
+        }
+      } else if (href.includes("/songs/") && href.endsWith(".html")) {
+        if (!seenSongs.has(full)) {
+          seenSongs.add(full);
+          directSongUrls.push(full);
         }
       }
     });
@@ -285,46 +254,21 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: false, message: err.message, songs: [], hasMore: false };
   }
 
-  if (albumUrls.length === 0) {
-    return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
-  }
-
-  // ── Step 2: Parallel Album Fetching (up to 15 albums at once) ──────────────
-  const seenSongUrls = new Set();
-  const allSongPageUrls = [];
+  // â”€â”€ Step 2: Fetch songs from albums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const allSongPageUrls = [...directSongUrls];
   const targetAlbums = albumUrls.slice(0, 15);
 
   const albumResults = await Promise.allSettled(
-    targetAlbums.map(async (albumUrl) => {
-      try {
-        const r = await axios.get(albumUrl, {
-          headers: HEADERS,
-          httpsAgent,
-          timeout: 5000,
-        });
-        if (r.status !== 200 || !r.data) return [];
-        const $ = cheerio.load(r.data);
-        const links = [];
-        $("a[href]").each((_, el) => {
-          const href = $(el).attr("href") || "";
-          if (href.includes("/song/") && href.includes("-mp3-download")) {
-            const full = new URL(href, BASE_URL).toString();
-            if (!seenSongUrls.has(full)) {
-              seenSongUrls.add(full);
-              links.push(full);
-            }
-          }
-        });
-        return links;
-      } catch {
-        return [];
-      }
-    })
+    targetAlbums.map((albumUrl) => getSongsFromAlbum(albumUrl))
   );
 
   for (const r of albumResults) {
     if (r.status === "fulfilled" && Array.isArray(r.value)) {
-      allSongPageUrls.push(...r.value);
+      for (const link of r.value) {
+        if (!allSongPageUrls.includes(link)) {
+          allSongPageUrls.push(link);
+        }
+      }
     }
   }
 
@@ -332,7 +276,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
-  // ── Step 3: Fast DB Check to Skip Existing Songs ─────────────────────────
+  // â”€â”€ Step 3: Fast DB Check to Skip Existing Songs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const existingAudioUrls = new Set();
   try {
     const docs = await Song.find({ language: langLabel }, { audio_url: 1, _id: 0 }).lean();
@@ -343,8 +287,8 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     /* ignore */
   }
 
-  // ── Step 4: High-Concurrency Detail Extraction (Concurrency = 24) ────────
-  const CONCURRENCY = 24;
+  // â”€â”€ Step 4: High-Concurrency Detail Extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const CONCURRENCY = 15;
   const extractedSongs = [];
   let idx = 0;
 
@@ -370,7 +314,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
-  // ── Step 5: Fast Bulk Upsert to MongoDB (Single Roundtrip) ────────────────
+  // â”€â”€ Step 5: Bulk Upsert to MongoDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const savedSongs = [];
   try {
     const bulkOps = extractedSongs.map((song) => ({
@@ -394,7 +338,6 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
       await Song.bulkWrite(bulkOps, { ordered: false });
     }
 
-    // Retrieve saved documents
     const savedDocs = await Song.find({
       audio_url: { $in: extractedSongs.map((s) => s.audio_url) },
     }).lean();
@@ -403,7 +346,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     savedSongs.push(...extractedSongs);
   }
 
-  // ── Step 6: Append to songs.json Asynchronously ───────────────────────────
+  // â”€â”€ Step 6: Append to songs.json â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   try {
     const songsJsonPath = path.join(__dirname, "../data/songs.json");
     if (fs.existsSync(songsJsonPath)) {
@@ -434,4 +377,3 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     hasMore: pageNum < maxPages,
   };
 }
-

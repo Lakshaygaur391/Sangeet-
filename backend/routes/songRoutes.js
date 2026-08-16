@@ -7,6 +7,11 @@ import {
   searchYoutube,
   scrapeCategorySongs,
   searchSongs,
+  getAlbums,
+  getSongsByAlbum,
+  getYears,
+  invalidateCatalogCache,
+  invalidateArtistsCache,
 } from "../controllers/songController.js";
 
 const router = express.Router();
@@ -21,5 +26,19 @@ router.get("/search-youtube", searchYoutube);
 router.get("/scrape/category/:category", scrapeCategorySongs);
 router.post("/scrape/category", scrapeCategorySongs);
 
+// Album & Year routes
+router.get("/albums", getAlbums);
+router.get("/albums/:name", getSongsByAlbum);
+router.get("/years", getYears);
+
+// Cache management
+router.post("/cache/reset", (req, res) => {
+  invalidateCatalogCache();
+  invalidateArtistsCache();
+  res.json({ success: true, message: "Caches cleared" });
+});
+
 export default router;
+
+
 

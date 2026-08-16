@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, useDeferredValue } from "react";
 import { useSearchParams } from "react-router-dom";
 import { IoIosSearch } from "react-icons/io";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
@@ -42,10 +42,13 @@ const Search = () => {
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
-  // Local search query state to prevent whole-app context re-rendering on keystrokes
   const initialParamQuery = searchParams.get("q") || "";
   const [inputQuery, setInputQuery] = useState(initialParamQuery);
+
+  // useDeferredValue ensures high-priority instantaneous typing while search compute is deferred
+  const deferredQuery = useDeferredValue(inputQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialParamQuery);
+
   const [searchResults, setSearchResults] = useState(() => {
     if (initialParamQuery) {
       const cached = getCachedSearchResults(initialParamQuery);
@@ -53,6 +56,7 @@ const Search = () => {
     }
     return [];
   });
+
   const [status, setStatus] = useState(initialParamQuery ? "loading" : "idle");
   const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
@@ -67,7 +71,7 @@ const Search = () => {
     }
   }, [searchParams]);
 
-  // Fast debounce on input query
+  // Debounce API search query & URL param update (300ms) to avoid re-rendering router on every key
   useEffect(() => {
     const trimmed = inputQuery.trim();
     const timer = setTimeout(() => {
@@ -77,7 +81,7 @@ const Search = () => {
       } else {
         setSearchParams({}, { replace: true });
       }
-    }, 180);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [inputQuery, setSearchParams]);
@@ -102,7 +106,6 @@ const Search = () => {
       return;
     }
 
-    // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -155,7 +158,7 @@ const Search = () => {
 
   useEffect(() => {
     if (!debouncedQuery) return;
-    const t = setTimeout(() => saveRecentSearch(debouncedQuery), 800);
+    const t = setTimeout(() => saveRecentSearch(debouncedQuery), 1200);
     return () => clearTimeout(t);
   }, [debouncedQuery, saveRecentSearch]);
 
@@ -181,20 +184,22 @@ const Search = () => {
     });
   };
 
-  // Single-pass O(N) ranked song results
+  // Deferred ranking calculation so input typing is never blocked
+  const activeQuery = deferredQuery.trim();
+
   const songResults = useMemo(() => {
-    if (!debouncedQuery || !searchResults.length) return [];
+    if (!activeQuery || !searchResults.length) return [];
     return [...searchResults].sort((a, b) => {
-      const scoreA = scoreSongMatch(a, debouncedQuery);
-      const scoreB = scoreSongMatch(b, debouncedQuery);
+      const scoreA = scoreSongMatch(a, activeQuery);
+      const scoreB = scoreSongMatch(b, activeQuery);
       return scoreB - scoreA;
     });
-  }, [searchResults, debouncedQuery]);
+  }, [searchResults, activeQuery]);
 
-  // Single-pass O(N) artist grouping and ranking
+  // Artist grouping and ranking
   const artistResults = useMemo(() => {
-    if (!debouncedQuery || !searchResults.length) return [];
-    const q = debouncedQuery.toLowerCase();
+    if (!activeQuery || !searchResults.length) return [];
+    const q = activeQuery.toLowerCase();
     const artistMap = new Map();
 
     for (const song of searchResults) {
@@ -224,16 +229,16 @@ const Search = () => {
     }
 
     return Array.from(artistMap.values()).slice(0, 8);
-  }, [searchResults, debouncedQuery]);
+  }, [searchResults, activeQuery]);
 
-  // Fast language matches
+  // Language matches
   const languageResults = useMemo(() => {
-    if (!debouncedQuery) return [];
-    const q = debouncedQuery.toLowerCase();
+    if (!activeQuery) return [];
+    const q = activeQuery.toLowerCase();
     return LANGUAGES.filter((l) => l.toLowerCase().includes(q));
-  }, [debouncedQuery]);
+  }, [activeQuery]);
 
-  const hasQuery = Boolean(debouncedQuery);
+  const hasQuery = Boolean(inputQuery.trim());
   const isLoading = status === "loading";
   const hasResults =
     songResults.length > 0 ||
