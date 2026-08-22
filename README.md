@@ -1,71 +1,16 @@
-# Sangeet — Music Streaming Platform
+# React + Vite
 
-Sangeet is a modern music streaming web application with a high-performance React (Vite + Tailwind) frontend and a Node.js/Express REST API backend connected to MongoDB.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
----
+Currently, two official plugins are available:
 
-## 📁 Project Structure
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-```text
-miniproject/
-├── backend/                  # Express REST API
-│   ├── controllers/          # Business logic (auth, songs, search, playlists)
-│   ├── models/               # Mongoose schemas (User, Song)
-│   ├── routes/               # Express API endpoints
-│   ├── scripts/              # Data resolution & seed scripts
-│   ├── data/                 # Static JSON datasets (songs.json)
-│   ├── audio/                # Local audio files storage
-│   ├── app.js                # Express app & middleware configuration
-│   ├── server.js             # Server startup & DB connection
-│   ├── .env.example          # Backend environment variables template
-│   └── package.json
-│
-├── frontend/                 # React 19 + Vite + Tailwind CSS
-│   ├── src/
-│   │   ├── components/       # UI & layout components (Player, Navbar, Modals)
-│   │   ├── context/          # React Context providers (Auth, Player, Library, UI)
-│   │   ├── hooks/            # Custom React hooks (useMediaSession, etc.)
-│   │   ├── pages/            # View pages (Home, Discover, Search, Library, Playlist, Artist)
-│   │   ├── services/         # API client & HTTP service functions
-│   │   └── lib/              # Utility helpers
-│   ├── index.html            # Main HTML document
-│   ├── vite.config.js        # Vite configuration
-│   ├── .env.example          # Frontend environment variables template
-│   └── package.json
-│
-├── scrap.py                  # Web scraping utility
-├── .gitignore                # Root gitignore
-└── README.md
-```
+## React Compiler
 
----
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## 🚀 Getting Started
+## Expanding the ESLint configuration
 
-### 1. Backend Setup
-
-```bash
-cd backend
-npm install
-# Copy .env.example to .env and configure your MONGO_URI
-npm run dev    # Starts server with nodemon at http://localhost:5000
-# or
-npm start      # Starts server with node
-```
-
-### 2. Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev    # Starts Vite dev server at http://localhost:5173
-```
-
----
-
-## 🛠️ API & Features
-
-- **Authentication**: JWT-based user login, registration, and persistent sessions.
-- **Music Player**: YouTube-backed audio player with queue management, seek bar, and media controls.
-- **Personal Library**: Liked songs, custom user playlists, recently played tracks.
-- **Search & Discover**: Multi-language categorization, artist exploration, real-time search.
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
