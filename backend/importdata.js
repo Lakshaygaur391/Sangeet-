@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import fs from "fs";
-import Song from "./models/Song.js";
+import Song, { inferYear, inferAlbum } from "./models/Song.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -22,12 +22,17 @@ const normalizeSongRecord = (song = {}) => {
   const title = normalizeText(song.title || song.name || "Unknown Song");
   const artist = normalizeText(song.artist || song.singer || "Unknown Artist");
   const language = normalizeText(song.language || "Unknown");
+  const rawAlbum = (song.album || "").trim();
+  const rawYear = (song.year || "").trim();
+
+  const enriched = { ...song, title, artist, language };
+  const album = (rawAlbum && rawAlbum !== "Single") ? rawAlbum : inferAlbum(enriched);
+  const year = rawYear || inferYear(enriched);
 
   return {
-    ...song,
-    title,
-    artist,
-    language,
+    ...enriched,
+    album,
+    year,
     audio_url: song.audio_url || "",
     youtube_url: song.youtube_url || "",
     thumbnail_url: song.thumbnail_url || "",

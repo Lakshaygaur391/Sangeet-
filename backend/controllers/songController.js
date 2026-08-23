@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 import mongoose from "mongoose";
-import Song from "../models/Song.js";
+import Song, { inferYear, inferAlbum } from "../models/Song.js";
 import { scrapeCategoryPage } from "../services/scraperService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -87,9 +87,20 @@ export const normalizeSongRecord = (song = {}) => {
   const plainSong = toPlainSong(song);
   const title = cleanText(plainSong.title || plainSong.name || "Unknown Song");
   const artist = cleanText(plainSong.artist || plainSong.singer || "Unknown Artist");
-  const album = cleanText(plainSong.album || "Single");
-  const year = cleanText(plainSong.year || "");
+  const rawAlbum = cleanText(plainSong.album || "");
+  const rawYear = cleanText(plainSong.year || "");
   const language = cleanText(plainSong.language || "Unknown");
+
+  const album = (rawAlbum && rawAlbum !== "Single") ? rawAlbum : inferAlbum(plainSong);
+  const year = rawYear || inferYear(plainSong);
+
+  // If a song document was missing album/year and has a MongoDB _id, persist it in the background
+  if (plainSong._id && (!plainSong.album || !plainSong.year) && mongoose.connection.readyState === 1) {
+    Song.updateOne(
+      { _id: plainSong._id },
+      { $set: { album, year } }
+    ).catch(() => {});
+  }
 
   return {
     ...plainSong,

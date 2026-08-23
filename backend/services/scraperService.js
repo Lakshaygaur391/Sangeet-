@@ -4,7 +4,7 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import Song from "../models/Song.js";
+import Song, { inferYear, inferAlbum } from "../models/Song.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -434,24 +434,28 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
   // ── Step 5: Fast Bulk Upsert to MongoDB (Single Roundtrip) ────────────────
   const savedSongs = [];
   try {
-    const bulkOps = extractedSongs.map((song) => ({
-      updateOne: {
-        filter: { audio_url: song.audio_url },
-        update: {
-          $set: {
-            title: song.title,
-            artist: song.artist,
-            album: song.album || "",
-            year: song.year || "",
-            language: song.language,
-            audio_url: song.audio_url,
-            thumbnail_url: song.thumbnail_url,
-            youtube_url: "",
+    const bulkOps = extractedSongs.map((song) => {
+      const finalAlbum = (song.album && song.album !== "Single") ? song.album : inferAlbum(song);
+      const finalYear = song.year || inferYear(song);
+      return {
+        updateOne: {
+          filter: { audio_url: song.audio_url },
+          update: {
+            $set: {
+              title: song.title,
+              artist: song.artist,
+              album: finalAlbum,
+              year: finalYear,
+              language: song.language,
+              audio_url: song.audio_url,
+              thumbnail_url: song.thumbnail_url,
+              youtube_url: "",
+            },
           },
+          upsert: true,
         },
-        upsert: true,
-      },
-    }));
+      };
+    });
 
     if (bulkOps.length > 0) {
       await Song.bulkWrite(bulkOps, { ordered: false });
