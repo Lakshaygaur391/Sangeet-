@@ -9,17 +9,19 @@ import authRoutes from "./routes/authRoutes.js";
 import libraryRoutes from "./routes/libraryRoutes.js";
 import playlistRoutes from "./routes/playlistRoutes.js";
 
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.join(__dirname, ".env") });
-dotenv.config(); // fallback
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use("/audio", express.static(path.join(__dirname, "audio")));
+
+// Disable buffering so queries fail immediately to fallback rather than timing out after 10s
+mongoose.set("bufferCommands", false);
 
 // Connect to MongoDB helper (cached across serverless invocations)
 let isConnected = false;
@@ -30,22 +32,24 @@ async function connectDB() {
   }
   const uri = process.env.MONGO_URI || process.env.Mongo_URI;
   if (!uri) {
-    console.warn("⚠️ MONGO_URI is not defined");
     return;
   }
-  await mongoose.connect(uri);
-  isConnected = true;
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 2500 });
+    isConnected = true;
+  } catch (err) {
+    console.warn("⚠️ MongoDB connection unavailable, running in local dataset mode:", err.message);
+  }
 }
 
 // Database middleware for serverless/local environments
 app.use(async (req, res, next) => {
   try {
     await connectDB();
-    next();
   } catch (err) {
-    console.error("DB connection error:", err.message);
-    next();
+    // Non-blocking
   }
+  next();
 });
 
 app.get("/", (req, res) => res.send("API is running"));

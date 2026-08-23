@@ -39,10 +39,8 @@ router.get("/years", getYears);
 router.post("/cache/reset", (req, res) => {
   invalidateCatalogCache();
   invalidateArtistsCache();
+  invalidateHomeFeedCache();
   res.json({ success: true, message: "Caches cleared" });
 });
 
 export default router;
-
-
-

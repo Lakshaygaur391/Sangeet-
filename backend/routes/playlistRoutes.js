@@ -1,24 +1,35 @@
 import express from "express";
 import {
-  getAllPlaylists,
-  createPlaylist,
-  getPlaylistById,
-  updatePlaylist,
-  deletePlaylist,
-  addSongToPlaylist,
-  removeSongFromPlaylist,
-  reorderPlaylist,
+  getYearlyPlaylistsOverview,
+  getYearlyPlaylistByYear,
+  getAllUserPlaylists,
+  createUserPlaylist,
+  getUserPlaylistById,
+  updateUserPlaylist,
+  deleteUserPlaylist,
+  addSongToUserPlaylist,
+  removeSongFromUserPlaylist,
+  reorderUserPlaylist,
 } from "../controllers/playlistController.js";
 
 const router = express.Router();
 
-router.get("/", getAllPlaylists);
-router.post("/", createPlaylist);
-router.get("/:id", getPlaylistById);
-router.patch("/:id", updatePlaylist);
-router.delete("/:id", deletePlaylist);
-router.post("/:id/songs", addSongToPlaylist);
-router.delete("/:id/songs/:songId", removeSongFromPlaylist);
-router.patch("/:id/reorder", reorderPlaylist);
+// Smart Yearly Playlists endpoints (must come before /:id)
+router.get("/years", getYearlyPlaylistsOverview);
+router.get("/year/:year", getYearlyPlaylistByYear);
+
+// User Playlists CRUD
+router.get("/", getAllUserPlaylists);
+router.post("/", createUserPlaylist);
+router.get("/:id", getUserPlaylistById);
+router.patch("/:id", updateUserPlaylist);
+router.put("/:id", updateUserPlaylist);
+router.delete("/:id", deleteUserPlaylist);
+
+// Playlist Song Management
+router.post("/:id/songs", addSongToUserPlaylist);
+router.delete("/:id/songs/:songId", removeSongFromUserPlaylist);
+router.put("/:id/reorder", reorderUserPlaylist);
+router.patch("/:id/reorder", reorderUserPlaylist);
 
 export default router;

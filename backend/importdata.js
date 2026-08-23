@@ -81,14 +81,10 @@ mongoose
 
     const cleanedSongs = dedupeSongs(songs);
 
-    console.log("🗑️ Deleting all previous data from MongoDB database...");
-    const deleteResult = await Song.deleteMany({});
-    console.log(`🗑️ Successfully deleted ${deleteResult.deletedCount} previous songs from the database.`);
-
-    console.log(`📦 Inserting ${cleanedSongs.length} new songs from pagalnew.com...`);
+    await Song.deleteMany();
     await Song.insertMany(cleanedSongs);
 
-    console.log(`✅ ${cleanedSongs.length} unique songs imported successfully into MongoDB!`);
+    console.log(`✅ ${cleanedSongs.length} unique songs imported successfully!`);
     process.exit(0);
   })
   .catch((err) => {
