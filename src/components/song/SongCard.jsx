@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { IoPlay, IoPause, IoEllipsisHorizontal, IoAddCircleOutline } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer } from "../../context/PlayerContext";
@@ -8,7 +8,7 @@ import { useUI } from "../../context/UIContext";
 import { normalizeSong, songId } from "../../lib/media";
 
 // Premium artwork-forward song card for grid & carousel layouts
-const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
+const SongCard = memo(({ song: rawSong, queue, index, onAddToPlaylist }) => {
   const song = normalizeSong(rawSong);
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
@@ -72,6 +72,7 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
             src={song.thumbnail_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
               unavailable ? "grayscale opacity-40" : ""
             }`}
@@ -195,6 +196,7 @@ const SongCard = ({ song: rawSong, queue, index, onAddToPlaylist }) => {
       </div>
     </div>
   );
-};
+});
 
+SongCard.displayName = "SongCard";
 export default SongCard;

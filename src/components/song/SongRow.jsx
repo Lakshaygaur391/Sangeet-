@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { IoPlay, IoPause, IoEllipsisHorizontal, IoAddCircleOutline } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer } from "../../context/PlayerContext";
@@ -8,7 +8,7 @@ import { useUI } from "../../context/UIContext";
 import { normalizeSong, songId, formatTime } from "../../lib/media";
 
 // Compact row used in playlist tracklists, Library, Queue, Artist popular tracks.
-const SongRow = ({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist }) => {
+const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist }) => {
   const song = normalizeSong(rawSong);
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
@@ -91,6 +91,8 @@ const SongRow = ({ song: rawSong, queue, index, showIndex = true, duration, onMe
         <img
           src={song.thumbnail_url}
           alt=""
+          loading="lazy"
+          decoding="async"
           className={`h-10 w-10 shrink-0 rounded-lg object-cover shadow-sm transition-transform group-hover:scale-105 ${unavailable ? "grayscale" : ""}`}
         />
         <div className="min-w-0">
@@ -170,7 +172,7 @@ const SongRow = ({ song: rawSong, queue, index, showIndex = true, duration, onMe
       </div>
     </div>
   );
-};
+});
 
+SongRow.displayName = "SongRow";
 export default SongRow;
-

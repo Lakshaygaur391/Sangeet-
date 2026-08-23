@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { IoPlay, IoPause, IoFlame, IoSparkles, IoMusicalNotes } from "react-icons/io5";
+import { memo } from "react";
+import { IoPlay, IoPause } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
@@ -7,7 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { songId } from "../../lib/media";
 
-const MoodCard = ({ mood, songs, onAddToPlaylist }) => {
+const MoodCard = memo(({ mood, songs, onAddToPlaylist }) => {
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { isAuthenticated } = useAuth();
@@ -60,7 +60,7 @@ const MoodCard = ({ mood, songs, onAddToPlaylist }) => {
           {/* 4-Tile Mini Mosaic Collage */}
           <div className="grid h-14 w-14 shrink-0 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 shadow-lg shadow-black/50">
             {previewImages.map((img, i) => (
-              <img key={i} src={img} alt="" className="h-full w-full object-cover" />
+              <img key={i} src={img} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ))}
           </div>
 
@@ -125,6 +125,7 @@ const MoodCard = ({ mood, songs, onAddToPlaylist }) => {
                     src={song.thumbnail_url}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition-transform duration-300 group-hover/item:scale-105"
                   />
 
@@ -189,6 +190,7 @@ const MoodCard = ({ mood, songs, onAddToPlaylist }) => {
       </div>
     </div>
   );
-};
+});
 
+MoodCard.displayName = "MoodCard";
 export default MoodCard;

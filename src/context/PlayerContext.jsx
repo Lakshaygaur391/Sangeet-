@@ -2,6 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { normalizeSong, songId } from "../lib/media";
 
 const PlayerContext = createContext();
+const PlaybackProgressContext = createContext({
+  currentTime: 0,
+  duration: 0,
+  progressPct: 0,
+  setCurrentTime: () => {},
+  setDuration: () => {},
+  seekTo: () => {},
+});
 
 export const REPEAT_MODES = ["off", "all", "one"];
 
@@ -58,6 +66,8 @@ export const PlayerProvider = ({ children }) => {
   const [volume, setVolume] = useState(() => loadStorage(STORAGE_KEYS.VOLUME, 100));
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
+
+  // High-frequency playback progress states (isolated to prevent tree-wide re-renders)
   const [currentTime, setCurrentTime] = useState(() => loadStorage(STORAGE_KEYS.TIME, 0));
   const [duration, setDuration] = useState(() => loadStorage(STORAGE_KEYS.DURATION, 0));
 
@@ -210,7 +220,8 @@ export const PlayerProvider = ({ children }) => {
     });
   }, []);
 
-  const value = useMemo(
+  // Stable player context value — does NOT invalidate on audio playback progress ticks
+  const playerValue = useMemo(
     () => ({
       currentSong,
       songList,
@@ -231,11 +242,6 @@ export const PlayerProvider = ({ children }) => {
       setIsQueueOpen,
       isNowPlayingOpen,
       setIsNowPlayingOpen,
-      currentTime,
-      setCurrentTime: updateCurrentTime,
-      duration,
-      setDuration,
-      seekTo,
       registerEngine,
       playSong,
       playAt,
@@ -246,6 +252,12 @@ export const PlayerProvider = ({ children }) => {
       clearQueue,
       moveQueueItem,
       registerOnPlay,
+      // Pass-through helpers
+      seekTo,
+      currentTime,
+      duration,
+      setCurrentTime: updateCurrentTime,
+      setDuration,
     }),
     [
       currentSong,
@@ -259,9 +271,6 @@ export const PlayerProvider = ({ children }) => {
       volume,
       isQueueOpen,
       isNowPlayingOpen,
-      currentTime,
-      duration,
-      seekTo,
       registerEngine,
       playSong,
       playAt,
@@ -272,11 +281,33 @@ export const PlayerProvider = ({ children }) => {
       clearQueue,
       moveQueueItem,
       registerOnPlay,
+      seekTo,
       updateCurrentTime,
     ]
   );
 
-  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
+  // Dedicated progress context for high-frequency scrubber bars
+  const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const progressValue = useMemo(
+    () => ({
+      currentTime,
+      duration,
+      progressPct,
+      setCurrentTime: updateCurrentTime,
+      setDuration,
+      seekTo,
+    }),
+    [currentTime, duration, progressPct, updateCurrentTime, seekTo]
+  );
+
+  return (
+    <PlayerContext.Provider value={playerValue}>
+      <PlaybackProgressContext.Provider value={progressValue}>
+        {children}
+      </PlaybackProgressContext.Provider>
+    </PlayerContext.Provider>
+  );
 };
 
 export const usePlayer = () => useContext(PlayerContext);
+export const usePlaybackProgress = () => useContext(PlaybackProgressContext);

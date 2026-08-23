@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoPlay, IoSparkles, IoMusicalNotes, IoHeart, IoTime } from "react-icons/io5";
 import { usePlayer } from "../../context/PlayerContext";
@@ -11,31 +12,7 @@ function fmtDuration(sec = 0) {
   return `${m} min`;
 }
 
-/**
- * Detect a release year from a song's thumbnail / title using the same
- * heuristics as the backend extractReleaseYear — but lightweight client-side.
- */
-function detectYear(song) {
-  if (!song) return null;
-  const thumb = String(song.thumbnail_url || "");
-  const title = String(song.title || "");
-
-  // 1. Filename pattern: -Hindi-2026-, -2016-, _2024_
-  const fnMatch = thumb.match(/[-_](?:[A-Za-z]+[-_])?(20\d{2})[-_]/);
-  if (fnMatch) return parseInt(fnMatch[1], 10);
-
-  // 2. Title: (2026) or [2026]
-  const titleMatch = title.match(/[\(\[\s](20\d{2})[\)\]\s]/);
-  if (titleMatch) return parseInt(titleMatch[1], 10);
-
-  // 3. Any 20xx in URL
-  const anyMatch = thumb.match(/(20\d{2})/);
-  if (anyMatch) return parseInt(anyMatch[1], 10);
-
-  return null;
-}
-
-const PlaylistCard = ({ playlist, onPlayAll }) => {
+const PlaylistCard = memo(({ playlist, onPlayAll }) => {
   const navigate = useNavigate();
   const { playSong } = usePlayer();
 
@@ -68,7 +45,6 @@ const PlaylistCard = ({ playlist, onPlayAll }) => {
     }
   };
 
-  // Accent style per playlist type
   const typeAccent = isLiked
     ? "from-rose-500/20 to-rose-700/10 border-rose-500/20"
     : isYearly
@@ -87,7 +63,6 @@ const PlaylistCard = ({ playlist, onPlayAll }) => {
       {/* Artwork container */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-white/[0.04]">
         {collage ? (
-          /* 4-Quadrant Visual Collage */
           <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden transition-transform duration-300 group-hover:scale-[1.03]">
             {collage.slice(0, 4).map((imgUrl, i) => (
               <img
@@ -95,20 +70,20 @@ const PlaylistCard = ({ playlist, onPlayAll }) => {
                 src={imgUrl}
                 alt=""
                 loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             ))}
           </div>
         ) : coverImage ? (
-          /* Single Cover Image */
           <img
             src={coverImage}
             alt={playlist.name}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
           />
         ) : (
-          /* Gradient Fallback */
           <div
             className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${typeAccent} p-4 text-center transition-transform duration-300 group-hover:scale-[1.04]`}
           >
@@ -197,6 +172,7 @@ const PlaylistCard = ({ playlist, onPlayAll }) => {
       </div>
     </div>
   );
-};
+});
 
+PlaylistCard.displayName = "PlaylistCard";
 export default PlaylistCard;

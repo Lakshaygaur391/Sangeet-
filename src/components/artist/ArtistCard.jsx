@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoPlay, IoCheckmarkCircle } from "react-icons/io5";
 import { usePlayer } from "../../context/PlayerContext";
@@ -28,7 +28,7 @@ function getArtistGradient(name = "") {
   return gradients[hash % gradients.length];
 }
 
-const ArtistCard = ({ artist, onPlay }) => {
+const ArtistCard = memo(({ artist, onPlay }) => {
   const navigate = useNavigate();
   const { playSong } = usePlayer();
   const { isAuthenticated } = useAuth();
@@ -46,7 +46,6 @@ const ArtistCard = ({ artist, onPlay }) => {
     artist.songs?.[0]?.thumbnail_url ||
     "";
 
-  // Filter out known broken/restricted domains if needed
   const isValidSrc = rawImage && !imgError;
   const songCount = artist.songCount ?? (artist.songs || []).length;
   const artistName = String(artist.name).trim();
@@ -66,13 +65,11 @@ const ArtistCard = ({ artist, onPlay }) => {
       return;
     }
 
-    // If artist already has songs array, play immediately
     if (Array.isArray(artist.songs) && artist.songs.length > 0) {
       playSong(artist.songs[0], artist.songs, 0);
       return;
     }
 
-    // Otherwise fetch songs by artist dynamically
     try {
       setIsPlayingLoading(true);
       const allSongs = await songService.getAll();
@@ -109,11 +106,11 @@ const ArtistCard = ({ artist, onPlay }) => {
               src={rawImage}
               alt={artistName}
               loading="lazy"
+              decoding="async"
               onError={() => setImgError(true)}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            /* Premium Sangeet Avatar Fallback */
             <div
               className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-b ${gradientClass} transition-transform duration-300 group-hover:scale-105`}
             >
@@ -164,6 +161,7 @@ const ArtistCard = ({ artist, onPlay }) => {
       </div>
     </div>
   );
-};
+});
 
+ArtistCard.displayName = "ArtistCard";
 export default ArtistCard;
