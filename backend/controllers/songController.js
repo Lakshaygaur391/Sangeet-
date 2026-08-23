@@ -382,9 +382,12 @@ async function buildHomeFeed() {
       limit: 50,
     }),
 
-    // Trending: Mixup of all languages sorted latest year first
+    // Trending in India: Latest Bollywood / Hindi songs from recent years only
     fetchSongs({
-      match: { audio_url: { $exists: true, $ne: "" }, year: { $exists: true, $ne: "" } },
+      match: {
+        language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] },
+        year: { $in: ["2026", "2025", "2024", "2023", "2022"] },
+      },
       sort: { year: -1, _id: -1 },
       limit: 60,
     }),

@@ -149,13 +149,11 @@ const Home = () => {
       .sort((a, b) => yearNum(b) - yearNum(a));
   }, [feed]);
 
-  // Trending in India: Mix of all languages sorted latest year first
-  // Trending in India: Latest Bollywood songs only, sorted by year descending
+  // Trending in India: Latest Bollywood songs (2022-2026), sorted by year desc
   const trending = useMemo(() => {
     const list = feed?.trending || [];
     return list
       .map(normalizeSong)
-      .filter((s) => (s.language || "").toLowerCase() === "bollywood")
       .sort((a, b) => yearNum(b) - yearNum(a));
   }, [feed]);
 
