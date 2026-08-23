@@ -57,11 +57,20 @@ const Player = () => {
     currentTime,
   });
 
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+
   // Register Audio Engine controls with PlayerContext
   useEffect(() => {
     registerEngine({
       seekTo: (time) => {
-        if (audioRef.current) audioRef.current.currentTime = time;
+        if (audioRef.current && Number.isFinite(time)) {
+          try {
+            audioRef.current.currentTime = time;
+          } catch (e) {
+            console.warn("Audio seek error:", e.message);
+          }
+        }
       },
       play: () => {
         audioRef.current?.play().catch(() => {});
@@ -94,18 +103,36 @@ const Player = () => {
 
   // HTML5 Audio Event Handlers
   const handleTimeUpdate = () => {
-    if (audioRef.current) setCurrentTime(audioRef.current.currentTime || 0);
+    if (audioRef.current && !isScrubbing) {
+      setCurrentTime(audioRef.current.currentTime || 0);
+    }
   };
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
-      setDuration(audioRef.current.duration || 0);
+      const dur = audioRef.current.duration;
+      if (Number.isFinite(dur) && dur > 0) {
+        setDuration(dur);
+      }
       audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
       if (isPlaying) audioRef.current.play().catch(() => {});
     }
   };
 
-  const handleSeek = (e) => seekTo(Number(e.target.value));
+  const handleSliderStart = (e) => {
+    setIsScrubbing(true);
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderChange = (e) => {
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderEnd = (e) => {
+    const val = Number(e.target.value);
+    setIsScrubbing(false);
+    seekTo(val);
+  };
 
   const toggleMute = () => {
     if (volume > 0) {
@@ -117,6 +144,9 @@ const Player = () => {
   };
 
   if (!currentSong) return null;
+
+  const displayTime = isScrubbing ? scrubTime : currentTime;
+  const progressPct = duration ? Math.min(100, (displayTime / duration) * 100) : 0;
 
   return (
     <>
@@ -149,22 +179,25 @@ const Player = () => {
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{currentSong.title}</p>
-            <p className="truncate text-xs text-white/45">{currentSong.artist}</p>
+            <p className="truncate text-xs text-white/50">{currentSong.artist}</p>
           </div>
         </button>
 
+        {/* Like */}
         <button
           type="button"
           aria-label={isLiked(currentSong) ? "Unlike song" : "Like song"}
           onClick={() => toggleLike(currentSong)}
-          className="shrink-0 text-lg text-white/50 transition hover:text-amber-300"
+          className={`shrink-0 text-xl transition hover:scale-110 ${
+            isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-white"
+          }`}
         >
-          {isLiked(currentSong) ? <IoMdHeart className="text-amber-400" /> : <IoMdHeartEmpty />}
+          {isLiked(currentSong) ? <IoMdHeart /> : <IoMdHeartEmpty />}
         </button>
 
-        {/* Transport controls */}
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="flex items-center gap-4 text-xl text-white">
+        {/* Controls */}
+        <div className="flex flex-1 flex-col items-center">
+          <div className="flex items-center gap-3 text-xl text-white">
             <button
               type="button"
               aria-label="Toggle shuffle"
@@ -188,7 +221,7 @@ const Player = () => {
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
               onClick={() => setIsPlaying(!isPlaying)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-black transition hover:bg-amber-300 shadow-md"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-black transition hover:bg-amber-300 shadow-md active:scale-95"
             >
               {isPlaying ? <IoPause /> : <IoPlay className="translate-x-0.5" />}
             </button>
@@ -219,19 +252,27 @@ const Player = () => {
           </div>
 
           <div className="mt-1.5 flex w-full max-w-xl items-center gap-2.5">
-            <span className="w-9 text-right text-[11px] text-white/40">
-              {formatTime(currentTime)}
+            <span className="w-9 text-right text-[11px] tabular-nums text-white/40">
+              {formatTime(displayTime)}
             </span>
             <input
               type="range"
               min="0"
-              max={duration || 0}
-              value={Math.min(currentTime, duration || 0)}
-              onChange={handleSeek}
-              aria-label="Seek"
-              className="h-1.5 w-full cursor-pointer accent-amber-400"
+              max={duration || 100}
+              step="0.1"
+              value={Math.min(displayTime, duration || 100)}
+              onMouseDown={handleSliderStart}
+              onTouchStart={handleSliderStart}
+              onChange={handleSliderChange}
+              onMouseUp={handleSliderEnd}
+              onTouchEnd={handleSliderEnd}
+              aria-label="Seek track"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-amber-400"
+              style={{
+                background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
+              }}
             />
-            <span className="w-9 text-left text-[11px] text-white/40">
+            <span className="w-9 text-left text-[11px] tabular-nums text-white/40">
               {formatTime(duration)}
             </span>
           </div>

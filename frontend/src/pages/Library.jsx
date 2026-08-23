@@ -23,9 +23,21 @@ const Library = () => {
   const outletCtx = useOutletContext();
   const [tab, setTab] = useState("all");
 
+  const validRecentlyPlayed = useMemo(() => {
+    return Array.isArray(recentlyPlayed)
+      ? recentlyPlayed.filter((s) => s && typeof s === "object")
+      : [];
+  }, [recentlyPlayed]);
+
+  const validLikedSongs = useMemo(() => {
+    return Array.isArray(likedSongs)
+      ? likedSongs.filter((s) => s && typeof s === "object")
+      : [];
+  }, [likedSongs]);
+
   const artistNames = useMemo(
-    () => [...new Set(likedSongs.concat(recentlyPlayed).map((s) => s.artist).filter(Boolean))],
-    [likedSongs, recentlyPlayed]
+    () => [...new Set(validLikedSongs.concat(validRecentlyPlayed).map((s) => s?.artist).filter(Boolean))],
+    [validLikedSongs, validRecentlyPlayed]
   );
 
   if (view === "liked") {
@@ -35,16 +47,16 @@ const Library = () => {
           <div>
             <p className="text-meta text-amber-300">Playlist</p>
             <h1 className="text-h1 mt-1 text-white">Liked Songs</h1>
-            <p className="text-body mt-1 text-white/45">{likedSongs.length} songs</p>
+            <p className="text-body mt-1 text-white/45">{validLikedSongs.length} songs</p>
           </div>
           <IoHeart className="text-4xl text-amber-400" />
         </header>
-        {likedSongs.length === 0 ? (
+        {validLikedSongs.length === 0 ? (
           <EmptyState icon={<IoHeart />} title="No liked songs yet" description="Tap the heart on any song to save it here." />
         ) : (
           <div>
-            {likedSongs.map((song, i) => (
-              <SongRow key={song._id || i} song={song} queue={likedSongs} index={i} />
+            {validLikedSongs.map((song, i) => (
+              <SongRow key={song._id || song.id || i} song={song} queue={validLikedSongs} index={i} />
             ))}
           </div>
         )}
@@ -60,18 +72,18 @@ const Library = () => {
             <p className="text-meta">Your Library</p>
             <h1 className="text-h1 mt-1 text-white">Recently Played</h1>
           </div>
-          {recentlyPlayed.length > 0 && (
+          {validRecentlyPlayed.length > 0 && (
             <button type="button" onClick={clearRecentlyPlayed} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-rose-300">
               <IoTrashOutline /> Clear history
             </button>
           )}
         </header>
-        {recentlyPlayed.length === 0 ? (
+        {validRecentlyPlayed.length === 0 ? (
           <EmptyState icon={<IoTimeOutline />} title="Nothing played yet" description="Songs you play will show up here." />
         ) : (
           <div>
-            {recentlyPlayed.map((song, i) => (
-              <SongRow key={song._id || i} song={song} queue={recentlyPlayed} index={i} />
+            {validRecentlyPlayed.map((song, i) => (
+              <SongRow key={song._id || song.id || i} song={song} queue={validRecentlyPlayed} index={i} />
             ))}
           </div>
         )}
@@ -166,13 +178,39 @@ const Library = () => {
         </div>
       )}
 
+      {(tab === "all" || tab === "recent") && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-h2 text-white">Recently Played</h2>
+            {validRecentlyPlayed.length > 0 && (
+              <button
+                type="button"
+                onClick={clearRecentlyPlayed}
+                className="text-xs text-white/45 hover:text-rose-300 transition"
+              >
+                Clear history
+              </button>
+            )}
+          </div>
+          {validRecentlyPlayed.length === 0 ? (
+            <EmptyState title="Nothing played yet" description="Songs you play will show up here." />
+          ) : (
+            <div>
+              {validRecentlyPlayed.slice(0, tab === "recent" ? undefined : 5).map((song, i) => (
+                <SongRow key={song._id || song.id || i} song={song} queue={validRecentlyPlayed} index={i} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {(tab === "all" || tab === "songs") && (
         <div>
           <h2 className="text-h2 mb-3 text-white">Liked Songs</h2>
-          {likedSongs.length === 0 ? (
+          {validLikedSongs.length === 0 ? (
             <EmptyState title="No liked songs" description="Songs you like will show up here." />
           ) : (
-            <div>{likedSongs.slice(0, tab === "songs" ? undefined : 5).map((song, i) => <SongRow key={song._id || i} song={song} queue={likedSongs} index={i} />)}</div>
+            <div>{validLikedSongs.slice(0, tab === "songs" ? undefined : 5).map((song, i) => <SongRow key={song._id || song.id || i} song={song} queue={validLikedSongs} index={i} />)}</div>
           )}
         </div>
       )}

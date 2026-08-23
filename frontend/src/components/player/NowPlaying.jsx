@@ -37,16 +37,37 @@ const NowPlaying = () => {
     return [...sameArtist, ...sameLanguage, ...rest].slice(0, 8);
   }, [currentSong, songList]);
 
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+
   if (!isNowPlayingOpen || !currentSong) return null;
 
-  const progressPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const displayTime = isScrubbing ? scrubTime : currentTime;
+  const progressPct = duration ? Math.min(100, (displayTime / duration) * 100) : 0;
+
+  const handleSliderStart = (e) => {
+    setIsScrubbing(true);
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderChange = (e) => {
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderEnd = (e) => {
+    const val = Number(e.target.value);
+    setIsScrubbing(false);
+    seekTo(val);
+  };
+
+  const skipSeconds = (delta) => {
+    const target = Math.max(0, Math.min(duration || 0, currentTime + delta));
+    seekTo(target);
+  };
 
   return (
     <div className="animate-fade-in fixed inset-0 z-[85] overflow-y-auto text-white">
-      {/* Ambient background — a heavily blurred, darkened wash of the
-          current artwork behind the content, like most modern music
-          players use. Kept dark/amber-tinted so it reads as Sangeet,
-          not a literal copy of any other product's background. */}
+      {/* Ambient background */}
       <div className="fixed inset-0 -z-10">
         <div
           className="h-full w-full scale-125"
@@ -75,9 +96,7 @@ const NowPlaying = () => {
           <span className="w-9" aria-hidden="true" />
         </div>
 
-        {/* Desktop: artwork/controls on the left, queue always visible on
-            the right (no drawer needed). Mobile/tablet: single column,
-            queue opens as an overlay drawer via the Queue button below. */}
+        {/* Desktop: artwork/controls on the left, queue on right */}
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-12">
           <div className="mx-auto flex w-full max-w-md flex-col lg:mx-0 lg:max-w-none">
             <div className="mx-auto mb-10 w-full max-w-sm sm:max-w-md">
@@ -103,26 +122,33 @@ const NowPlaying = () => {
               </button>
             </div>
 
+            {/* Seekbar */}
             <div className="relative">
               <input
                 type="range"
                 min="0"
-                max={duration || 0}
-                value={Math.min(currentTime, duration || 0)}
-                onChange={(e) => seekTo(Number(e.target.value))}
-                aria-label="Seek"
-                className="relative z-10 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-amber-400"
+                max={duration || 100}
+                step="0.1"
+                value={Math.min(displayTime, duration || 100)}
+                onMouseDown={handleSliderStart}
+                onTouchStart={handleSliderStart}
+                onChange={handleSliderChange}
+                onMouseUp={handleSliderEnd}
+                onTouchEnd={handleSliderEnd}
+                aria-label="Seek track"
+                className="relative z-10 h-2 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-amber-400"
                 style={{
                   background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.15) ${progressPct}%)`,
                 }}
               />
             </div>
             <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-white/40">
-              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(displayTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
 
-            <div className="mt-9 flex items-center justify-center gap-7 text-2xl sm:gap-8">
+            {/* Controls */}
+            <div className="mt-8 flex items-center justify-center gap-4 sm:gap-6 text-2xl">
               <button
                 type="button"
                 aria-label="Toggle shuffle"
@@ -132,9 +158,22 @@ const NowPlaying = () => {
               >
                 <IoShuffle className="text-lg" />
               </button>
+
               <button type="button" aria-label="Previous" onClick={playPrevious} className="rounded-full p-2 text-white transition hover:bg-white/10">
                 <IoPlaySkipBack />
               </button>
+
+              {/* Rewind 10s */}
+              <button
+                type="button"
+                aria-label="Rewind 10 seconds"
+                onClick={() => skipSeconds(-10)}
+                className="rounded-full border border-white/10 p-1.5 text-xs font-bold text-white/50 transition hover:bg-white/10 hover:text-white"
+                title="Rewind 10s"
+              >
+                -10s
+              </button>
+
               <button
                 type="button"
                 aria-label={isPlaying ? "Pause" : "Play"}
@@ -143,9 +182,22 @@ const NowPlaying = () => {
               >
                 {isPlaying ? <IoPause className="text-2xl" /> : <IoPlay className="translate-x-0.5 text-2xl" />}
               </button>
+
+              {/* Forward 10s */}
+              <button
+                type="button"
+                aria-label="Forward 10 seconds"
+                onClick={() => skipSeconds(10)}
+                className="rounded-full border border-white/10 p-1.5 text-xs font-bold text-white/50 transition hover:bg-white/10 hover:text-white"
+                title="Forward 10s"
+              >
+                +10s
+              </button>
+
               <button type="button" aria-label="Next" onClick={playNext} className="rounded-full p-2 text-white transition hover:bg-white/10">
                 <IoPlaySkipForward />
               </button>
+
               <button
                 type="button"
                 aria-label={`Repeat: ${repeatMode}`}

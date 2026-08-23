@@ -50,10 +50,10 @@ let _artistsCache = null;
 let _artistsPromise = null;
 
 /** Pre-warm the fast Home Feed immediately on startup (compact ~200KB payload) */
-export function prefetchHomeFeed() {
-  if (_homeFeedPromise) return _homeFeedPromise;
+export function prefetchHomeFeed(force = false) {
+  if (_homeFeedPromise && !force) return _homeFeedPromise;
   _homeFeedPromise = safeRequest(api.get("/api/feed/home"), null).then((data) => {
-    if (data && typeof data === "object") {
+    if (data && typeof data === "object" && Object.keys(data).length > 0) {
       _homeFeedCache = data;
       try {
         sessionStorage.setItem("sangeet_home_feed", JSON.stringify(data));
@@ -131,11 +131,14 @@ export function getCachedSearchResults(query) {
 }
 
 const songService = {
-  /** Returns lightweight Home Feed with zero lag */
-  getHomeFeed: () => {
-    if (_homeFeedCache) return Promise.resolve(_homeFeedCache);
+  /** Returns lightweight Home Feed with zero lag, refreshing in background */
+  getHomeFeed: (forceRefresh = false) => {
+    if (_homeFeedCache && !forceRefresh) {
+      prefetchHomeFeed(true);
+      return Promise.resolve(_homeFeedCache);
+    }
     if (_homeFeedPromise) return _homeFeedPromise;
-    return prefetchHomeFeed();
+    return prefetchHomeFeed(forceRefresh);
   },
 
   /** Returns catalog instantly from cache on re-visits; fetches on demand */

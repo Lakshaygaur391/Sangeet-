@@ -100,12 +100,34 @@ const Home = () => {
     return () => { cancelled = true; };
   }, []);
 
+  const yearNum = (s) => {
+    const y = parseInt(s?.year || "", 10);
+    return isNaN(y) ? 0 : y;
+  };
+
   const featured = useMemo(() => (feed?.featured ? normalizeSong(feed.featured) : null), [feed]);
-  const fresh = useMemo(() => (feed?.fresh || []).map(normalizeSong), [feed]);
+  
+  // Fresh on Sangeet: Latest Hindi / Bollywood songs year-wise first
+  const fresh = useMemo(() => {
+    const list = (feed?.fresh && feed.fresh.length > 0) ? feed.fresh : (feed?.bollywood || []);
+    return list
+      .map(normalizeSong)
+      .filter((s) => {
+        const l = (s.language || "").toLowerCase();
+        return !l || l === "hindi" || l === "bollywood";
+      })
+      .sort((a, b) => yearNum(b) - yearNum(a));
+  }, [feed]);
+
   const bollywoodSongs = useMemo(() => [...(feed?.bollywood || []).map(normalizeSong), ...extraBollywood], [feed, extraBollywood]);
   const ninetiesSongs = useMemo(() => (feed?.nineties || []).map(normalizeSong), [feed]);
   const twothousandsSongs = useMemo(() => (feed?.twothousands || []).map(normalizeSong), [feed]);
-  const trending = useMemo(() => (feed?.trending || []).map(normalizeSong), [feed]);
+  
+  // Trending in India: Mix of all languages sorted latest year first
+  const trending = useMemo(() => {
+    const list = feed?.trending || [];
+    return list.map(normalizeSong).sort((a, b) => yearNum(b) - yearNum(a));
+  }, [feed]);
   const albumsData = useMemo(() => feed?.albums || [], [feed]);
   const allArtists = useMemo(() => (feed?.artists || []).map((a) => ({
     ...a,
