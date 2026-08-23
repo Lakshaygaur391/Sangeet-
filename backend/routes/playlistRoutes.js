@@ -1,47 +1,34 @@
 import express from "express";
+import {
+  getYearlyPlaylistsOverview,
+  getYearlyPlaylistByYear,
+  getAllUserPlaylists,
+  createUserPlaylist,
+  getUserPlaylistById,
+  updateUserPlaylist,
+  deleteUserPlaylist,
+  addSongToUserPlaylist,
+  removeSongFromUserPlaylist,
+  reorderUserPlaylist,
+} from "../controllers/playlistController.js";
 
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  res.json([]);
-});
+// Smart Yearly Playlists endpoints (must come before /:id)
+router.get("/years", getYearlyPlaylistsOverview);
+router.get("/year/:year", getYearlyPlaylistByYear);
 
-router.post("/", (req, res) => {
-  const { name = "New Playlist", description = "", isPublic = true } = req.body;
-  const newPlaylist = {
-    _id: Date.now().toString(),
-    name,
-    description,
-    isPublic,
-    songs: [],
-    createdAt: new Date().toISOString(),
-  };
-  res.status(201).json(newPlaylist);
-});
+// User Playlists CRUD
+router.get("/", getAllUserPlaylists);
+router.post("/", createUserPlaylist);
+router.get("/:id", getUserPlaylistById);
+router.patch("/:id", updateUserPlaylist);
+router.put("/:id", updateUserPlaylist);
+router.delete("/:id", deleteUserPlaylist);
 
-router.get("/:id", (req, res) => {
-  res.json({
-    _id: req.params.id,
-    name: "Playlist",
-    description: "",
-    songs: [],
-  });
-});
-
-router.patch("/:id", (req, res) => {
-  res.json({ _id: req.params.id, ...req.body });
-});
-
-router.delete("/:id", (req, res) => {
-  res.json({ success: true });
-});
-
-router.post("/:id/songs", (req, res) => {
-  res.json({ success: true, songId: req.body.songId });
-});
-
-router.delete("/:id/songs/:songId", (req, res) => {
-  res.json({ success: true });
-});
+// Playlist Song Management
+router.post("/:id/songs", addSongToUserPlaylist);
+router.delete("/:id/songs/:songId", removeSongFromUserPlaylist);
+router.put("/:id/reorder", reorderUserPlaylist);
 
 export default router;

@@ -1,0 +1,16 @@
+[
+  {
+    "_id": "user_1787326117240_1pcpu",
+    "name": "Test User",
+    "email": "test_1787326117089@example.com",
+    "password": "$2b$10$QE6RdOA6zjvgSkaCXWaycOU8MRzN3.4NHkSF6Jv4HmIU08RT14O1.",
+    "createdAt": "2026-08-21T15:28:37.240Z"
+  },
+  {
+    "_id": "user_1787326166541_09hbr",
+    "name": "Umang Shukla",
+    "email": "shuklaumang418@gmail.com",
+    "password": "$2b$10$G/k94uIAT9gjs116JrXaAeG5eKgWRKgcEghRdVdFWajrIx.5pwVZ.",
+    "createdAt": "2026-08-21T15:29:26.541Z"
+  }
+]
