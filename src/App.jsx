@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { UIProvider } from "./context/UIContext";
 import { PlayerProvider } from "./context/PlayerContext";
@@ -81,8 +81,17 @@ function App() {
                   <Route path="support" element={<Support />} />
                   <Route path="careers" element={<Careers />} />
                   <Route path="for-artists" element={<ForArtists />} />
+                  <Route path="legal" element={<Legal />} />
                   <Route path="legal/:doc" element={<Legal />} />
+                  <Route path="privacy" element={<Navigate to="/legal/privacy" replace />} />
+                  <Route path="terms" element={<Navigate to="/legal/terms" replace />} />
+                  <Route path="terms-of-service" element={<Navigate to="/legal/terms" replace />} />
+                  <Route path="privacy-policy" element={<Navigate to="/legal/privacy" replace />} />
+                  <Route path="cookies" element={<Navigate to="/legal/cookies" replace />} />
+                  <Route path="copyright" element={<Navigate to="/legal/copyright" replace />} />
+                  <Route path="accessibility" element={<Navigate to="/legal/accessibility" replace />} />
                 </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Router>
           </LibraryProvider>
