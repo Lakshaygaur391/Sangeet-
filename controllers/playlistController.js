@@ -89,13 +89,21 @@ export const getAllCatalogSongs = async () => {
   }
 
   if (!allSongs || allSongs.length === 0) {
-    try {
-      const songsPath = path.join(__dirname, "../data/songs.json");
-      if (fs.existsSync(songsPath)) {
-        allSongs = JSON.parse(fs.readFileSync(songsPath, "utf8"));
+    const possiblePaths = [
+      path.join(__dirname, "../data/songs.json"),
+      path.join(process.cwd(), "backend/data/songs.json"),
+      path.join(process.cwd(), "data/songs.json"),
+      path.join(process.cwd(), "../backend/data/songs.json"),
+    ];
+    for (const songsPath of possiblePaths) {
+      try {
+        if (fs.existsSync(songsPath)) {
+          allSongs = JSON.parse(fs.readFileSync(songsPath, "utf8"));
+          if (Array.isArray(allSongs) && allSongs.length > 0) break;
+        }
+      } catch (e) {
+        allSongs = [];
       }
-    } catch (e) {
-      allSongs = [];
     }
   }
 

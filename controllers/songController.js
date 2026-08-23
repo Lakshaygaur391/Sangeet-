@@ -17,18 +17,25 @@ const getLocalSongs = () => {
   if (cachedLocalSongs && cachedLocalSongs.length > 0) {
     return cachedLocalSongs;
   }
-  try {
-    const filePath = path.join(__dirname, "../data/songs.json");
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, "utf8");
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        cachedLocalSongs = parsed;
-        return cachedLocalSongs;
+  const possiblePaths = [
+    path.join(__dirname, "../data/songs.json"),
+    path.join(process.cwd(), "backend/data/songs.json"),
+    path.join(process.cwd(), "data/songs.json"),
+    path.join(process.cwd(), "../backend/data/songs.json"),
+  ];
+  for (const filePath of possiblePaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cachedLocalSongs = parsed;
+          return cachedLocalSongs;
+        }
       }
+    } catch (err) {
+      console.error(`Failed loading songs from ${filePath}:`, err.message);
     }
-  } catch (err) {
-    console.error("Failed to load local songs.json:", err.message);
   }
   return [];
 };
