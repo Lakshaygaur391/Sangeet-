@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import Song from "../models/Song.js";
+import Playlist from "../models/Playlist.js";
 import { dedupeSongs, normalizeSongRecord } from "./songController.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -77,7 +78,7 @@ export const extractReleaseYear = (song) => {
 };
 
 // Helper to load songs catalog
-const getAllCatalogSongs = async () => {
+export const getAllCatalogSongs = async () => {
   let allSongs = [];
   if (mongoose.connection.readyState === 1) {
     try {
@@ -196,7 +197,8 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
  */
 export const getYearlyPlaylistByYear = async (req, res) => {
   try {
-    const targetYear = parseInt(req.params.year.replace(/^year-/, ""), 10);
+    const rawYear = String(req.params.year || "").replace(/^year-/, "");
+    const targetYear = parseInt(rawYear, 10);
     if (isNaN(targetYear)) {
       return res.status(400).json({ message: "Invalid year parameter" });
     }
@@ -245,7 +247,7 @@ export const getYearlyPlaylistByYear = async (req, res) => {
  */
 export const getCuratedPlaylist = async (typeOrLang) => {
   const allSongs = await getAllCatalogSongs();
-  const rawKey = typeOrLang.toLowerCase().replace(/^(curated-|spotlight-|category-)/, "");
+  const rawKey = String(typeOrLang || "").toLowerCase().replace(/^(curated-|spotlight-|category-)/, "");
 
   let name = "";
   let description = "";
@@ -270,10 +272,14 @@ export const getCuratedPlaylist = async (typeOrLang) => {
     if (songs.length === 0) songs = allSongs.slice(0, 50);
   } else {
     // Language spotlight
-    const capLang = rawKey.charAt(0).toUpperCase() + rawKey.slice(1);
+    const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
     name = `${capLang} Spotlight`;
     description = `The best and latest ${capLang} songs and chart-toppers curated by Sangeet.`;
     songs = allSongs.filter((s) => (s.language || "").trim().toLowerCase() === rawKey);
+    if (songs.length === 0) {
+      // Fallback: search in title or artist or general songs if exact language filter has no match
+      songs = allSongs.slice(0, 50);
+    }
   }
 
   const totalDuration = songs.reduce((acc, s) => acc + (s.duration || 210), 0);
@@ -288,8 +294,8 @@ export const getCuratedPlaylist = async (typeOrLang) => {
   }
 
   return {
-    id: `spotlight-${rawKey}`,
-    _id: `spotlight-${rawKey}`,
+    id: `spotlight-${rawKey || "featured"}`,
+    _id: `spotlight-${rawKey || "featured"}`,
     name,
     title: name,
     description,
@@ -310,8 +316,28 @@ export const getCuratedPlaylist = async (typeOrLang) => {
  */
 export const getAllUserPlaylists = async (req, res) => {
   try {
-    const list = getLocalPlaylists();
-    res.json(list);
+    let dbPlaylists = [];
+    if (mongoose.connection.readyState === 1) {
+      try {
+        dbPlaylists = await Playlist.find({}).sort({ updatedAt: -1 }).lean();
+      } catch (e) {
+        // Fallback to local
+      }
+    }
+
+    const localList = getLocalPlaylists();
+    const seen = new Set();
+    const combined = [];
+
+    [...dbPlaylists, ...localList].forEach((p) => {
+      const key = String(p._id || p.id || "");
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        combined.push(p);
+      }
+    });
+
+    res.json(combined);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -320,11 +346,10 @@ export const getAllUserPlaylists = async (req, res) => {
 export const createUserPlaylist = async (req, res) => {
   try {
     const { name = "New Playlist", description = "", isPublic = true, coverImage = "" } = req.body;
-    const list = getLocalPlaylists();
+    const localList = getLocalPlaylists();
 
     const newPlaylist = {
       id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      _id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim() || "New Playlist",
       description: description.trim(),
       isPublic: Boolean(isPublic),
@@ -335,9 +360,28 @@ export const createUserPlaylist = async (req, res) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    newPlaylist._id = newPlaylist.id;
 
-    list.unshift(newPlaylist);
-    saveLocalPlaylists(list);
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const saved = await Playlist.create({
+          name: newPlaylist.name,
+          description: newPlaylist.description,
+          coverImage: newPlaylist.coverImage,
+          isPublic: newPlaylist.isPublic,
+          songs: [],
+        });
+        if (saved) {
+          newPlaylist._id = String(saved._id);
+          newPlaylist.id = String(saved._id);
+        }
+      } catch (e) {
+        console.warn("Could not save playlist to MongoDB, using local fallback:", e.message);
+      }
+    }
+
+    localList.unshift(newPlaylist);
+    saveLocalPlaylists(localList);
 
     res.status(201).json(newPlaylist);
   } catch (err) {
@@ -347,7 +391,8 @@ export const createUserPlaylist = async (req, res) => {
 
 export const getUserPlaylistById = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
+
     if (id.startsWith("year-") || /^\d{4}$/.test(id)) {
       req.params.year = id;
       return getYearlyPlaylistByYear(req, res);
@@ -364,8 +409,19 @@ export const getUserPlaylistById = async (req, res) => {
       return res.json(curated);
     }
 
+    // Try MongoDB query if valid ObjectId
+    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
+      try {
+        const dbPlaylist = await Playlist.findById(id).lean();
+        if (dbPlaylist) return res.json(dbPlaylist);
+      } catch (dbErr) {
+        // Fallback to local
+      }
+    }
+
+    // Check local playlists
     const list = getLocalPlaylists();
-    const playlist = list.find((p) => (p.id || p._id) === id);
+    const playlist = list.find((p) => String(p.id || p._id) === id);
 
     if (!playlist) {
       return res.status(404).json({ message: "Playlist not found" });
@@ -373,29 +429,37 @@ export const getUserPlaylistById = async (req, res) => {
 
     res.json(playlist);
   } catch (err) {
+    console.error("Error in getUserPlaylistById:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
 
 export const updateUserPlaylist = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
     const updates = req.body;
     const list = getLocalPlaylists();
-    const idx = list.findIndex((p) => (p.id || p._id) === id);
+    const idx = list.findIndex((p) => String(p.id || p._id) === id);
 
-    if (idx === -1) {
-      return res.status(404).json({ message: "Playlist not found" });
+    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
+      try {
+        await Playlist.findByIdAndUpdate(id, { $set: updates }, { new: true });
+      } catch (e) {
+        // Ignore fallback
+      }
     }
 
-    list[idx] = {
-      ...list[idx],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
+    if (idx !== -1) {
+      list[idx] = {
+        ...list[idx],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      saveLocalPlaylists(list);
+      return res.json(list[idx]);
+    }
 
-    saveLocalPlaylists(list);
-    res.json(list[idx]);
+    res.status(404).json({ message: "Playlist not found" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -403,11 +467,19 @@ export const updateUserPlaylist = async (req, res) => {
 
 export const deleteUserPlaylist = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
+    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
+      try {
+        await Playlist.findByIdAndDelete(id);
+      } catch (e) {
+        // Ignore fallback
+      }
+    }
+
     let list = getLocalPlaylists();
-    list = list.filter((p) => (p.id || p._id) !== id);
+    list = list.filter((p) => String(p.id || p._id) !== id);
     saveLocalPlaylists(list);
-    res.json({ success: true });
+    res.json({ success: true, message: "Playlist deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -415,14 +487,10 @@ export const deleteUserPlaylist = async (req, res) => {
 
 export const addSongToUserPlaylist = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
     const { songId, song } = req.body;
     const list = getLocalPlaylists();
-    const playlist = list.find((p) => (p.id || p._id) === id);
-
-    if (!playlist) {
-      return res.status(404).json({ message: "Playlist not found" });
-    }
+    const playlist = list.find((p) => String(p.id || p._id) === id);
 
     let songToAdd = song;
     if (!songToAdd && songId) {
@@ -432,19 +500,37 @@ export const addSongToUserPlaylist = async (req, res) => {
 
     if (songToAdd) {
       const normalized = normalizeSongRecord(songToAdd);
-      const exists = (playlist.songs || []).some(
-        (s) => (s._id || s.id || s.audio_url) === (normalized._id || normalized.id || normalized.audio_url)
-      );
+      if (playlist) {
+        const exists = (playlist.songs || []).some(
+          (s) => (s._id || s.id || s.audio_url) === (normalized._id || normalized.id || normalized.audio_url)
+        );
+        if (!exists) {
+          playlist.songs = playlist.songs || [];
+          playlist.songs.push(normalized);
+          playlist.updatedAt = new Date().toISOString();
+          saveLocalPlaylists(list);
+        }
+      }
 
-      if (!exists) {
-        playlist.songs = playlist.songs || [];
-        playlist.songs.push(normalized);
-        playlist.updatedAt = new Date().toISOString();
-        saveLocalPlaylists(list);
+      if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
+        try {
+          const dbPl = await Playlist.findById(id);
+          if (dbPl) {
+            const exists = (dbPl.songs || []).some(
+              (s) => (s._id || s.id || s.audio_url) === (normalized._id || normalized.id || normalized.audio_url)
+            );
+            if (!exists) {
+              dbPl.songs.push(normalized);
+              await dbPl.save();
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
       }
     }
 
-    res.json({ success: true, playlist });
+    res.json({ success: true, playlist: playlist || { id, songs: [] } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -454,19 +540,29 @@ export const removeSongFromUserPlaylist = async (req, res) => {
   try {
     const { id, songId } = req.params;
     const list = getLocalPlaylists();
-    const playlist = list.find((p) => (p.id || p._id) === id);
+    const playlist = list.find((p) => String(p.id || p._id) === String(id));
 
-    if (!playlist) {
-      return res.status(404).json({ message: "Playlist not found" });
+    if (playlist) {
+      playlist.songs = (playlist.songs || []).filter(
+        (s) => (s._id || s.id || s.audio_url) !== songId
+      );
+      playlist.updatedAt = new Date().toISOString();
+      saveLocalPlaylists(list);
     }
 
-    playlist.songs = (playlist.songs || []).filter(
-      (s) => (s._id || s.id || s.audio_url) !== songId
-    );
-    playlist.updatedAt = new Date().toISOString();
-    saveLocalPlaylists(list);
+    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
+      try {
+        const dbPl = await Playlist.findById(id);
+        if (dbPl) {
+          dbPl.songs = (dbPl.songs || []).filter((s) => (s._id || s.id || s.audio_url) !== songId);
+          await dbPl.save();
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
 
-    res.json({ success: true, playlist });
+    res.json({ success: true, playlist: playlist || { id, songs: [] } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -474,22 +570,30 @@ export const removeSongFromUserPlaylist = async (req, res) => {
 
 export const reorderUserPlaylist = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = String(req.params.id || "").trim();
     const { songs } = req.body;
     const list = getLocalPlaylists();
-    const playlist = list.find((p) => (p.id || p._id) === id);
+    const playlist = list.find((p) => String(p.id || p._id) === id);
 
-    if (!playlist) {
-      return res.status(404).json({ message: "Playlist not found" });
-    }
-
-    if (Array.isArray(songs)) {
+    if (playlist && Array.isArray(songs)) {
       playlist.songs = songs;
       playlist.updatedAt = new Date().toISOString();
       saveLocalPlaylists(list);
     }
 
-    res.json({ success: true, playlist });
+    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id) && Array.isArray(songs)) {
+      try {
+        const dbPl = await Playlist.findById(id);
+        if (dbPl) {
+          dbPl.songs = songs;
+          await dbPl.save();
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    res.json({ success: true, playlist: playlist || { id, songs: [] } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
