@@ -433,31 +433,43 @@ export const getHomeFeed = async (req, res) => {
 
 export const getAllSongs = async (req, res) => {
   try {
+    const isPaginated = req.query.page !== undefined || req.query.limit !== undefined;
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const limit = Math.min(parseInt(req.query.limit, 10) || (isPaginated ? 50 : 200), 200);
     const language = req.query.language || null;
 
     const match = { audio_url: { $exists: true, $ne: "" } };
     if (language) match.language = new RegExp(`^${language}$`, "i");
 
-    const [total, songs] = await Promise.all([
-      Song.countDocuments(match),
-      Song.find(match)
-        .select(SONG_FIELDS)
-        .sort({ year: -1, title: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-    ]);
+    if (isPaginated) {
+      const [total, songs] = await Promise.all([
+        Song.countDocuments(match),
+        Song.find(match)
+          .select(SONG_FIELDS)
+          .sort({ year: -1, title: 1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json({
+        songs,
+        total,
+        page,
+        limit,
+        hasMore: page * limit < total,
+      });
+    }
+
+    const songs = await Song.find(match)
+      .select(SONG_FIELDS)
+      .sort({ year: -1, _id: -1 })
+      .limit(limit)
+      .lean();
 
     res.setHeader("Cache-Control", "public, max-age=180");
-    return res.json({
-      songs,
-      total,
-      page,
-      limit,
-      hasMore: page * limit < total,
-    });
+    return res.json(songs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -466,32 +478,44 @@ export const getAllSongs = async (req, res) => {
 export const getSongsByLanguage = async (req, res) => {
   try {
     const language = req.params.language;
+    const isPaginated = req.query.page !== undefined || req.query.limit !== undefined;
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const limit = Math.min(parseInt(req.query.limit, 10) || (isPaginated ? 50 : 200), 200);
 
     const match = {
       audio_url: { $exists: true, $ne: "" },
       language: new RegExp(`^${language}$`, "i"),
     };
 
-    const [total, songs] = await Promise.all([
-      Song.countDocuments(match),
-      Song.find(match)
-        .select(SONG_FIELDS)
-        .sort({ year: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-    ]);
+    if (isPaginated) {
+      const [total, songs] = await Promise.all([
+        Song.countDocuments(match),
+        Song.find(match)
+          .select(SONG_FIELDS)
+          .sort({ year: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json({
+        songs,
+        total,
+        page,
+        limit,
+        hasMore: page * limit < total,
+      });
+    }
+
+    const songs = await Song.find(match)
+      .select(SONG_FIELDS)
+      .sort({ year: -1 })
+      .limit(limit)
+      .lean();
 
     res.setHeader("Cache-Control", "public, max-age=180");
-    return res.json({
-      songs,
-      total,
-      page,
-      limit,
-      hasMore: page * limit < total,
-    });
+    return res.json(songs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -1,8 +1,10 @@
 import api, { safeRequest } from "./api";
 
 /** Only songs with a direct MP3 audio_url are playable */
-const withAudio = (songs) =>
-  Array.isArray(songs) ? songs.filter((s) => s?.audio_url) : [];
+const withAudio = (data) => {
+  const songs = Array.isArray(data) ? data : Array.isArray(data?.songs) ? data.songs : [];
+  return songs.filter((s) => s?.audio_url);
+};
 
 const LANG_TO_SLUG = {
   "punjabi": "punjabi",
