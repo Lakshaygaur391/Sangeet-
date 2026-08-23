@@ -112,14 +112,20 @@ const Home = () => {
     return result;
   }, [rawSongs]);
 
+  // Pre-indexed O(1) language mapping for instant lookups
+  const languageMap = useMemo(() => {
+    const map = new Map();
+    for (const s of songs) {
+      const lang = (s.language || "").trim().toLowerCase();
+      if (!map.has(lang)) map.set(lang, []);
+      map.get(lang).push(s);
+    }
+    return map;
+  }, [songs]);
+
   const byLanguage = useCallback(
-    (lang) =>
-      songs.filter((s) => {
-        const songLang = (s.language || "").trim().toLowerCase();
-        const target = lang.trim().toLowerCase();
-        return songLang === target;
-      }),
-    [songs]
+    (lang) => languageMap.get(String(lang || "").trim().toLowerCase()) || [],
+    [languageMap]
   );
 
   const featured = songs[0];

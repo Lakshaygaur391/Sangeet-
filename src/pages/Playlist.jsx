@@ -25,6 +25,7 @@ import { useLibrary } from "../context/LibraryContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useUI } from "../context/UIContext";
 import playlistService from "../services/playlistService";
+import songService from "../services/songService";
 import { songId, normalizeSong, formatTime } from "../lib/media";
 
 /** Format total seconds into human readable duration string */
@@ -115,19 +116,99 @@ const Playlist = () => {
     setError(false);
 
     try {
-      if (isYearlyParam) {
-        const year = id.replace(/^year-/, "");
+      if (isYearlyParam || id?.startsWith("year-") || /^\d{4}$/.test(id)) {
+        const year = parseInt(id.replace(/^year-/, ""), 10);
         const res = await playlistService.getYear(year);
-        if (res) {
+        if (res && Array.isArray(res.songs)) {
           setRemotePlaylist(res);
         } else {
-          setError(true);
+          // Client-side fallback: synthesize yearly playlist from catalog
+          const allSongs = await songService.getAll();
+          const yearSongs = (allSongs || []).filter((s) => detectSongYear(s) === year);
+          if (yearSongs.length > 0) {
+            setRemotePlaylist({
+              id: `year-${year}`,
+              _id: `year-${year}`,
+              year,
+              name: `${year}`,
+              title: `${year}`,
+              description: `The best songs and releases from ${year}.`,
+              owner: "Sangeet",
+              isYearly: true,
+              songCount: yearSongs.length,
+              songs: yearSongs,
+              coverImage: yearSongs[0]?.thumbnail_url || "",
+            });
+          } else {
+            setError(true);
+          }
         }
       } else {
         if (!localPlaylist) {
           const res = await playlistService.getById(id);
-          if (res) setRemotePlaylist(res);
-          else setError(true);
+          if (res && (res.songs || res.name)) {
+            setRemotePlaylist(res);
+          } else if (
+            id?.startsWith("spotlight-") ||
+            id?.startsWith("curated-") ||
+            id?.startsWith("category-") ||
+            id === "fresh" ||
+            id === "trending"
+          ) {
+            // Client-side fallback for curated spotlight playlists
+            const rawKey = id.toLowerCase().replace(/^(curated-|spotlight-|category-)/, "");
+            const allSongs = await songService.getAll();
+            let curatedSongs = [];
+            let name = "";
+            let description = "";
+
+            if (rawKey === "fresh" || rawKey === "new-releases") {
+              name = "Fresh on Sangeet";
+              description = "The freshest drops and newly released songs, handpicked for you.";
+              curatedSongs = (allSongs || []).slice(0, 100);
+            } else if (rawKey === "trending" || rawKey === "trending-in-india") {
+              name = "Trending in India";
+              description = "The hottest, most played tracks setting the charts on fire across India right now.";
+              curatedSongs = [...(allSongs || [])].reverse().slice(0, 100);
+            } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
+              name = "Instagram Viral Song Spotlight";
+              description = "The most viral and trending sounds dominating social feeds and reels.";
+              curatedSongs = (allSongs || []).filter(
+                (s) =>
+                  (s.language || "").toLowerCase().includes("instagram") ||
+                  (s.language || "").toLowerCase().includes("viral")
+              );
+              if (curatedSongs.length === 0) curatedSongs = (allSongs || []).slice(0, 50);
+            } else {
+              const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
+              name = `${capLang} Spotlight`;
+              description = `The best and latest ${capLang} songs and chart-toppers curated by Sangeet.`;
+              curatedSongs = (allSongs || []).filter(
+                (s) => (s.language || "").trim().toLowerCase() === rawKey
+              );
+              if (curatedSongs.length === 0) curatedSongs = (allSongs || []).slice(0, 50);
+            }
+
+            if (curatedSongs.length > 0) {
+              setRemotePlaylist({
+                id: `spotlight-${rawKey}`,
+                _id: `spotlight-${rawKey}`,
+                name,
+                title: name,
+                description,
+                owner: "Sangeet Curated",
+                isCurated: true,
+                isYearly: false,
+                songCount: curatedSongs.length,
+                songs: curatedSongs,
+                coverImage: curatedSongs[0]?.thumbnail_url || "",
+              });
+            } else {
+              setError(true);
+            }
+          } else {
+            setError(true);
+          }
         }
       }
     } catch {

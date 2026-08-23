@@ -53,8 +53,25 @@ export const LibraryProvider = ({ children }) => {
     let cancelled = false;
     async function loadYears() {
       const years = await playlistService.getYears();
-      if (!cancelled && Array.isArray(years)) {
-        setYearlyPlaylists(years);
+      if (!cancelled) {
+        if (Array.isArray(years) && years.length > 0) {
+          setYearlyPlaylists(years);
+        } else {
+          const currentYear = new Date().getFullYear();
+          const fallbackYears = [];
+          for (let y = currentYear; y >= 2000; y--) {
+            fallbackYears.push({
+              id: `year-${y}`,
+              year: y,
+              name: `${y}`,
+              title: `${y}`,
+              description: `Music released in ${y}`,
+              owner: "Sangeet",
+              isYearly: true,
+            });
+          }
+          setYearlyPlaylists(fallbackYears);
+        }
       }
     }
     loadYears();

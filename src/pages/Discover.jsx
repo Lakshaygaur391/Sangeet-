@@ -21,7 +21,7 @@ function seededShuffle(list, seed) {
   return arr;
 }
 
-const PAGE_SIZE = 50; // songs revealed per Load More click
+const PAGE_SIZE = 16; // Optimized for smooth fast initial render, expandable on demand
 
 const Discover = () => {
   const [status, setStatus] = useState("loading");
