@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, useCallback, useRef, useDeferredValue } f
 import { useSearchParams } from "react-router-dom";
 import { IoIosSearch } from "react-icons/io";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
-import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
@@ -63,7 +62,7 @@ const Search = () => {
 
   const abortControllerRef = useRef(null);
 
-  // Synchronize when URL search param changes externally (e.g. browser back/forward)
+  // Synchronize when URL search param changes externally (e.g. browser back/forward or topbar search)
   useEffect(() => {
     const urlQ = (searchParams.get("q") || "").trim();
     if (urlQ !== inputQuery.trim()) {
@@ -116,7 +115,7 @@ const Search = () => {
 
     async function fetchResults() {
       try {
-        const results = await songService.search(q, controller.signal);
+        const results = await songService.search(q, { signal: controller.signal, limit: 100 });
         if (controller.signal.aborted) return;
         if (results === null) {
           setStatus("error");
@@ -220,6 +219,7 @@ const Search = () => {
         if (!artistMap.has(key)) {
           artistMap.set(key, {
             name,
+            id: name,
             image: avatarFor(name),
             songs: [],
           });
@@ -247,26 +247,35 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search Header indicator */}
-      {hasQuery && (
-        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-          <p className="text-sm text-white/50">
-            Results for <span className="font-semibold text-amber-300">"{activeQuery || inputQuery}"</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setInputQuery("");
-              setActiveQuery("");
-              setSearchResults([]);
-              setSearchParams({}, { replace: true });
-            }}
-            className="text-xs font-semibold text-white/40 hover:text-white transition-colors"
-          >
-            Clear Search
-          </button>
+      {/* Search Input Bar */}
+      <div className="relative">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#141415] px-4 py-3.5 shadow-lg shadow-black/20 transition-all duration-200 focus-within:border-amber-400/40 focus-within:shadow-amber-400/10 focus-within:ring-1 focus-within:ring-amber-400/20">
+          <IoIosSearch className="shrink-0 text-xl text-white/45" />
+          <input
+            autoFocus
+            type="text"
+            value={inputQuery}
+            onChange={(e) => setInputQuery(e.target.value)}
+            placeholder="Search songs, artists, albums, languages…"
+            aria-label="Search"
+            className="min-w-0 flex-1 bg-transparent text-white placeholder:text-white/35 focus:outline-none"
+          />
+          {inputQuery && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setInputQuery("");
+                setSearchResults([]);
+                setSearchParams({}, { replace: true });
+              }}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/15 hover:text-white"
+            >
+              <IoClose className="text-sm" />
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* When no query is typed: Recent searches & Browse Languages */}
       {!hasQuery && (
@@ -323,13 +332,13 @@ const Search = () => {
 
           <div>
             <h2 className="text-h2 mb-3 text-white font-semibold">Browse by Language</h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
               {LANGUAGES.map((lang) => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => setInputQuery(lang)}
-                  className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-400/15 hover:border-amber-400/40 hover:scale-105 active:scale-95"
+                  className="rounded-xl border border-amber-400/15 bg-amber-400/[0.05] py-3 px-4 text-center text-sm font-medium text-amber-200 transition hover:border-amber-400/30 hover:bg-amber-400/[0.10] hover:text-amber-100 active:scale-95"
                 >
                   {lang}
                 </button>
@@ -380,14 +389,14 @@ const Search = () => {
           {/* Matched Languages */}
           {languageResults.length > 0 && (
             <div>
-              <h2 className="text-h2 mb-2 text-white font-semibold">Languages</h2>
+              <h2 className="text-h2 mb-3 text-white font-semibold">Languages</h2>
               <div className="flex flex-wrap gap-2">
                 {languageResults.map((l) => (
                   <button
                     key={l}
                     type="button"
                     onClick={() => setInputQuery(l)}
-                    className="rounded-full border border-amber-400/20 bg-amber-400/[0.08] px-3.5 py-1.5 text-sm text-amber-200 hover:bg-amber-400/20 transition cursor-pointer"
+                    className="rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-400/20 hover:border-amber-400/40 transition cursor-pointer"
                   >
                     {l}
                   </button>
@@ -427,7 +436,7 @@ const Search = () => {
               <div className="scrollbar-none flex gap-3 overflow-x-auto pb-2 md:gap-4">
                 {artistResults.map((artist) => (
                   <ArtistCard
-                    key={artist.name}
+                    key={artist.name || artist.id}
                     artist={artist}
                     onPlay={() => {
                       if (!isAuthenticated) {

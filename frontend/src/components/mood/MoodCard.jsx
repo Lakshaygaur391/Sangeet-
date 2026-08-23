@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useRef } from "react";
 import { IoPlay, IoPause } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer } from "../../context/PlayerContext";
@@ -7,11 +7,18 @@ import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { songId } from "../../lib/media";
 
-const MoodCard = memo(({ mood, songs, onAddToPlaylist }) => {
+const MoodCard = memo(({ mood, songs }) => {
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
+  const scrollRef = useRef(null);
+
+  const handleSwipe = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
+    }
+  };
 
   const isMoodActive =
     currentSong && songs.some((s) => songId(s) === songId(currentSong));
@@ -101,12 +108,33 @@ const MoodCard = memo(({ mood, songs, onAddToPlaylist }) => {
 
       {/* Track Rail */}
       <div className="relative z-10 mt-4">
-        <div className="flex items-center justify-between pb-2 text-[11px] font-bold uppercase tracking-wider text-white/40">
-          <span>Curated Mix ({songs.length} Tracks)</span>
-          <span className="text-white/30">Swipe &rarr;</span>
+        <div className="flex items-center justify-between pb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+            Curated Mix ({songs.length} Tracks)
+          </span>
+          <button
+            type="button"
+            onClick={handleSwipe}
+            aria-label="Scroll right"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
+            }}
+            className="group/swipe flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/50 transition-all duration-300 hover:scale-105 hover:border-white/20 hover:text-white/80 active:scale-95"
+          >
+            <span className="transition-transform duration-300 group-hover/swipe:-translate-x-0.5">Swipe</span>
+            <span className="inline-flex items-center justify-center transition-transform duration-300 group-hover/swipe:translate-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+              </svg>
+            </span>
+          </button>
         </div>
 
-        <div className="scrollbar-none -mx-1 flex gap-3 overflow-x-auto px-1 py-1">
+        <div ref={scrollRef} className="scrollbar-none -mx-1 flex gap-3 overflow-x-auto px-1 py-1">
           {songs.map((song, i) => {
             const isCurrent = currentSong && songId(currentSong) === songId(song);
             const liked = isLiked(song);

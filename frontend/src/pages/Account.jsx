@@ -16,14 +16,12 @@ import {
 } from "react-icons/io5";
 import { useAuth } from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
-import { usePlayer } from "../context/PlayerContext";
 import { useUI } from "../context/UIContext";
 import { avatarFor } from "../lib/media";
 
 const Account = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { likedSongs, recentlyPlayed, playlists, clearRecentlyPlayed } = useLibrary();
-  const { playSong } = usePlayer();
+  const { likedSongs, recentlyPlayed, playlists } = useLibrary();
   const { toast } = useUI();
   const navigate = useNavigate();
 

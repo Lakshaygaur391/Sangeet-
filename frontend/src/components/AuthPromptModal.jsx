@@ -131,6 +131,16 @@ const AuthPromptModal = () => {
           >
             Already have an account? <span className="font-semibold text-amber-300">Log in</span>
           </button>
+
+          {/* Security & Free Trust Badge */}
+          <div className="mt-4 flex items-center justify-center gap-2 border-t border-white/[0.08] pt-3 text-[11px] text-white/40">
+            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span>100% Free Forever</span>
+            <span>•</span>
+            <span>No Credit Card</span>
+            <span>•</span>
+            <span className="text-emerald-300">100% Secure & Encrypted</span>
+          </div>
         </div>
       </div>
     </div>

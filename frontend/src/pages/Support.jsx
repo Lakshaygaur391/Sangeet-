@@ -4,24 +4,28 @@ import { useUI } from "../context/UIContext";
 
 const FAQS = [
   {
-    q: "Why can't I find a song?",
-    a: "Some songs may not be available on Sangeet yet. Try searching with the exact song title, artist name, or an alternative spelling.",
+    q: "Is Sangeet completely free to use?",
+    a: "Yes. Sangeet is 100% free with no monthly subscription fees, credit card requirements, or hidden charges. All core listening and playlist features are completely accessible to everyone.",
   },
   {
-    q: "Do I need an account to listen?",
-    a: "No. You can explore and listen to music without creating an account. An account is required for features such as likes, playlists, and listening history.",
+    q: "Why do I need to create a free account to play songs?",
+    a: "Anyone can freely browse the catalog, search artists, and discover regional genres without logging in. To stream full-fidelity audio tracks, like songs, build custom playlists, and sync your playback history across devices, a quick free signup is required. This helps us ensure lightning-fast CDN audio streaming, prevent automated bot scraping, and maintain your private listening history.",
   },
   {
-    q: "Is Sangeet free?",
-    a: "Yes. Sangeet is currently free to use, with no subscription required to access the core listening experience.",
+    q: "Is my personal data and account 100% secure?",
+    a: "Absolutely. Sangeet uses industry-standard 256-bit SSL/TLS encryption for all data transmissions, cryptographic password hashing (bcrypt), and secure tokenized authentication. We strictly respect your privacy and never sell or monetize your personal data with third-party advertisers.",
+  },
+  {
+    q: "How do I sign up or log in?",
+    a: "Simply click the 'Sign Up' button in the top navigation bar or tap play on any song to open the free registration modal. You only need a name, email, and password to get started in seconds.",
   },
   {
     q: "Why isn't a song playing?",
-    a: "First, check your internet connection and try refreshing the page. If the problem continues, report the issue below with the song title and artist name.",
+    a: "Ensure you are signed in to your free account and that your internet connection is active. If a specific track fails to load, it might be undergoing catalog maintenance. You can report it below for immediate review.",
   },
   {
-    q: "How can I report a problem?",
-    a: "Use the Report a Problem form below and provide as much detail as possible. This helps us identify and resolve issues faster.",
+    q: "How can I report a problem or request music?",
+    a: "Use the Report a Problem form below to describe any audio issues, missing tracks, or feature requests. Our engineering team reviews all submitted feedback regularly.",
   },
 ];
 

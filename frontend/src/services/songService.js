@@ -195,17 +195,19 @@ const songService = {
     return { ...res, songs: withAudio(res.songs) };
   },
 
-  search: async (query, signal) => {
+  search: async (query, optionsOrSignal = {}) => {
     const cleanQuery = (query || "").trim();
     if (!cleanQuery) return [];
-    const cacheKey = cleanQuery.toLowerCase();
+    const signal = optionsOrSignal?.signal || (optionsOrSignal instanceof AbortSignal ? optionsOrSignal : undefined);
+    const limit = optionsOrSignal?.limit || 60;
+    const cacheKey = `${cleanQuery.toLowerCase()}::${limit}`;
 
     if (clientSearchCache.has(cacheKey)) {
       return clientSearchCache.get(cacheKey);
     }
 
     const res = await safeRequest(
-      api.get("/api/search", { params: { q: cleanQuery }, signal }),
+      api.get("/api/search", { params: { q: cleanQuery, limit }, signal }),
       null
     );
 

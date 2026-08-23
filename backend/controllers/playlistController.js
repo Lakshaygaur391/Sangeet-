@@ -10,7 +10,106 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PLAYLISTS_FILE = path.join(__dirname, "../data/playlists.json");
-const SONG_FIELDS = "title artist album year language audio_url thumbnail_url youtube_url";
+const SONG_FIELDS = "title artist album year language audio_url thumbnail_url youtube_url duration";
+
+// Helper to extract verified release year from any song record
+export const extractReleaseYear = (song) => {
+  if (!song) return null;
+
+  // 1. Direct explicit properties if provided
+  if (song.release_year) {
+    const y = parseInt(song.release_year, 10);
+    if (!isNaN(y) && y >= 1950 && y <= 2099) return y;
+  }
+  if (song.releaseYear) {
+    const y = parseInt(song.releaseYear, 10);
+    if (!isNaN(y) && y >= 1950 && y <= 2099) return y;
+  }
+  if (song.year) {
+    const y = parseInt(song.year, 10);
+    if (!isNaN(y) && y >= 1950 && y <= 2099) return y;
+  }
+  if (song.releaseDate) {
+    const y = new Date(song.releaseDate).getFullYear();
+    if (!isNaN(y) && y >= 1950 && y <= 2099) return y;
+  }
+
+  const thumb = String(song.thumbnail_url || "");
+  const audio = String(song.audio_url || "");
+  const title = String(song.title || "");
+  const album = String(song.album || "");
+
+  // 2. Pattern in thumbnail filename (e.g. -Hindi-2026-, -2016-, _2024_)
+  const filenamePattern = /[-_](?:[A-Za-z]+[-_])?(20[0-9]{2})[-_]/;
+  const matchThumb = thumb.match(filenamePattern);
+  if (matchThumb) {
+    const y = parseInt(matchThumb[1], 10);
+    if (y >= 1990 && y <= 2099) return y;
+  }
+
+  // 3. Pattern in title: (2026) or [2026]
+  const titleYear = title.match(/[\(\[\s](20[0-9]{2})[\)\]\s]/);
+  if (titleYear) {
+    const y = parseInt(titleYear[1], 10);
+    if (y >= 1990 && y <= 2099) return y;
+  }
+
+  // 4. Pattern in album: (2026)
+  const albumYear = album.match(/(20[0-9]{2})/);
+  if (albumYear) {
+    const y = parseInt(albumYear[1], 10);
+    if (y >= 1990 && y <= 2099) return y;
+  }
+
+  // 5. Pattern in upload folder: /uploads/2026/
+  const uploadMatch = (thumb + " " + audio).match(/\/uploads\/(20[0-9]{2})\//);
+  if (uploadMatch) {
+    const y = parseInt(uploadMatch[1], 10);
+    if (y >= 1990 && y <= 2099) return y;
+  }
+
+  // 6. Generic 4-digit 20xx in url
+  const anyUrlYear = (thumb + " " + audio).match(/(20[0-9]{2})/);
+  if (anyUrlYear) {
+    const y = parseInt(anyUrlYear[1], 10);
+    if (y >= 1990 && y <= 2099) return y;
+  }
+
+  return new Date().getFullYear();
+};
+
+// Helper to load songs catalog for fallback
+export const getAllCatalogSongs = async () => {
+  let allSongs = [];
+  if (mongoose.connection.readyState === 1) {
+    try {
+      allSongs = await Song.find({ audio_url: { $exists: true, $ne: "" } }).select(SONG_FIELDS).lean();
+    } catch (err) {
+      console.warn("DB query in playlistController failed, using local songs.json fallback:", err.message);
+    }
+  }
+
+  if (!allSongs || allSongs.length === 0) {
+    const possiblePaths = [
+      path.join(__dirname, "../data/songs.json"),
+      path.join(process.cwd(), "backend/data/songs.json"),
+      path.join(process.cwd(), "data/songs.json"),
+      path.join(process.cwd(), "../backend/data/songs.json"),
+    ];
+    for (const songsPath of possiblePaths) {
+      try {
+        if (fs.existsSync(songsPath)) {
+          allSongs = JSON.parse(fs.readFileSync(songsPath, "utf8"));
+          if (Array.isArray(allSongs) && allSongs.length > 0) break;
+        }
+      } catch (e) {
+        allSongs = [];
+      }
+    }
+  }
+
+  return dedupeSongs(allSongs.filter((s) => s.audio_url && s.audio_url.trim() !== ""));
+};
 
 // Local storage for user playlists
 const getLocalPlaylists = () => {
@@ -44,7 +143,7 @@ const YEARLY_OVERVIEW_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * GET /api/playlists/years
- * Returns all dynamically available release years with song counts and collage artwork via DB aggregation.
+ * Returns all dynamically available release years with song counts, total duration, and collage artwork.
  */
 export const getYearlyPlaylistsOverview = async (req, res) => {
   try {
@@ -84,49 +183,77 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
           { $sort: { _id: -1 } },
         ]);
 
-        result = yearGroups.map((g) => {
-          const year = parseInt(g._id, 10);
-          const rawThumbs = Array.isArray(g.thumbnails) ? g.thumbnails : [];
-          const uniqueThumbs = Array.from(new Set(rawThumbs)).slice(0, 4);
+        if (Array.isArray(yearGroups) && yearGroups.length > 0) {
+          result = yearGroups.map((g) => {
+            const year = parseInt(g._id, 10);
+            const rawThumbs = Array.isArray(g.thumbnails) ? g.thumbnails : [];
+            const uniqueThumbs = Array.from(new Set(rawThumbs)).slice(0, 4);
 
-          return {
-            id: `year-${year}`,
-            year,
-            name: `${year}`,
-            title: `${year}`,
-            description: `Music released in ${year}`,
-            owner: "Sangeet",
-            isYearly: true,
-            songCount: g.songCount,
-            totalDuration: g.songCount * 210,
-            collage: uniqueThumbs,
-            coverImage: uniqueThumbs[0] || "",
-            createdAt: `${year}-01-01T00:00:00.000Z`,
-          };
-        });
+            return {
+              id: `year-${year}`,
+              year,
+              name: `${year}`,
+              title: `${year}`,
+              description: `Music released in ${year}`,
+              owner: "Sangeet",
+              isYearly: true,
+              songCount: g.songCount,
+              totalDuration: g.songCount * 210,
+              collage: uniqueThumbs,
+              coverImage: uniqueThumbs[0] || "",
+              createdAt: `${year}-01-01T00:00:00.000Z`,
+            };
+          });
+        }
       } catch (dbErr) {
         console.warn("MongoDB aggregate in getYearlyPlaylistsOverview failed:", dbErr.message);
       }
     }
 
     if (!result || result.length === 0) {
-      // Fallback years if DB unavailable
-      const currentYear = new Date().getFullYear();
-      result = Array.from({ length: 10 }, (_, i) => {
-        const y = currentYear - i;
+      const songs = await getAllCatalogSongs();
+      const yearBuckets = new Map();
+
+      for (const song of songs) {
+        const year = extractReleaseYear(song);
+        if (!year) continue;
+
+        if (!yearBuckets.has(year)) {
+          yearBuckets.set(year, []);
+        }
+        yearBuckets.get(year).push(song);
+      }
+
+      const sortedYears = Array.from(yearBuckets.keys()).sort((a, b) => b - a);
+
+      result = sortedYears.map((year) => {
+        const yearSongs = yearBuckets.get(year);
+        const songCount = yearSongs.length;
+        const totalDuration = yearSongs.reduce((acc, s) => acc + (s.duration || 210), 0);
+
+        const collage = [];
+        const seenThumb = new Set();
+        for (const s of yearSongs) {
+          if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
+            seenThumb.add(s.thumbnail_url);
+            collage.push(s.thumbnail_url);
+            if (collage.length === 4) break;
+          }
+        }
+
         return {
-          id: `year-${y}`,
-          year: y,
-          name: `${y}`,
-          title: `${y}`,
-          description: `Music released in ${y}`,
+          id: `year-${year}`,
+          year,
+          name: `${year}`,
+          title: `${year}`,
+          description: `Music released in ${year}`,
           owner: "Sangeet",
           isYearly: true,
-          songCount: 50,
-          totalDuration: 50 * 210,
-          collage: [],
-          coverImage: "",
-          createdAt: `${y}-01-01T00:00:00.000Z`,
+          songCount,
+          totalDuration,
+          collage,
+          coverImage: collage[0] || "",
+          createdAt: `${year}-01-01T00:00:00.000Z`,
         };
       });
     }
@@ -143,7 +270,7 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
 
 /**
  * GET /api/playlists/year/:year
- * Returns full smart playlist for a specific year using targeted DB query.
+ * Returns full smart playlist for a specific year.
  */
 export const getYearlyPlaylistByYear = async (req, res) => {
   try {
@@ -168,6 +295,11 @@ export const getYearlyPlaylistByYear = async (req, res) => {
       } catch (dbErr) {
         console.warn("MongoDB query failed in getYearlyPlaylistByYear:", dbErr.message);
       }
+    }
+
+    if (!yearSongs || yearSongs.length === 0) {
+      const allSongs = await getAllCatalogSongs();
+      yearSongs = allSongs.filter((song) => extractReleaseYear(song) === targetYear);
     }
 
     const deduped = dedupeSongs(yearSongs);
@@ -248,6 +380,27 @@ export const getCuratedPlaylist = async (typeOrLang) => {
         .lean();
     } catch (e) {
       console.warn("Curated playlist query failed:", e.message);
+    }
+  }
+
+  if (!songs || songs.length === 0) {
+    const allSongs = await getAllCatalogSongs();
+    if (rawKey === "fresh" || rawKey === "new-releases") {
+      songs = allSongs.slice(0, 100);
+    } else if (rawKey === "trending" || rawKey === "trending-in-india") {
+      songs = [...allSongs].reverse().slice(0, 100);
+    } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
+      songs = allSongs.filter(
+        (s) =>
+          (s.language || "").toLowerCase().includes("instagram") ||
+          (s.language || "").toLowerCase().includes("viral")
+      );
+      if (songs.length === 0) songs = allSongs.slice(0, 50);
+    } else {
+      songs = allSongs.filter((s) => (s.language || "").trim().toLowerCase() === rawKey);
+      if (songs.length === 0) {
+        songs = allSongs.slice(0, 50);
+      }
     }
   }
 
@@ -463,11 +616,17 @@ export const addSongToUserPlaylist = async (req, res) => {
     const playlist = list.find((p) => String(p.id || p._id) === id);
 
     let songToAdd = song;
-    if (!songToAdd && songId && mongoose.connection.readyState === 1 && mongoose.isValidObjectId(songId)) {
-      try {
-        songToAdd = await Song.findById(songId).select(SONG_FIELDS).lean();
-      } catch (e) {
-        // fallback
+    if (!songToAdd && songId) {
+      if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(songId)) {
+        try {
+          songToAdd = await Song.findById(songId).select(SONG_FIELDS).lean();
+        } catch (e) {
+          // fallback
+        }
+      }
+      if (!songToAdd) {
+        const allSongs = await getAllCatalogSongs();
+        songToAdd = allSongs.find((s) => (s._id || s.id || s.audio_url) === songId);
       }
     }
 

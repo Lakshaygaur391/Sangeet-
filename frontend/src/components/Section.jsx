@@ -14,6 +14,7 @@ import { InlineError } from "./ui/StatePanels";
 const Section = ({
   title,
   eyebrow,
+  subtitle,
   status = "ready",
   error,
   onRetry,
@@ -26,7 +27,6 @@ const Section = ({
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Drag-to-scroll state
   const isDownRef = useRef(false);
@@ -178,28 +178,32 @@ const Section = ({
   return (
     <section
       id={id}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        handleMouseUpOrLeave();
-      }}
-      className="group/section relative scroll-mt-24 rounded-2xl border border-white/10 bg-[#141414] p-4 shadow-lg shadow-black/20 md:p-5"
+      onMouseLeave={handleMouseUpOrLeave}
+      className="group/section relative scroll-mt-24 rounded-3xl border border-white/[0.06] bg-[#0f0f10]/80 p-4 shadow-xl shadow-black/25 md:p-5"
     >
       <div className="mb-3 flex items-end justify-between gap-3 px-1">
-        <div>
-          {eyebrow && <p className="text-meta mb-1 text-amber-300/80">{eyebrow}</p>}
-          <h2 className="text-h2 text-white">{title}</h2>
+        <div className="min-w-0 flex-1">
+          {eyebrow && <p className="text-meta mb-1 text-amber-400/90">{eyebrow}</p>}
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-h2 text-white truncate">{title}</h2>
+          </div>
+          {subtitle && (
+            <p className="text-xs text-white/45 mt-0.5 font-normal truncate">{subtitle}</p>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {seeAllHref && status === "ready" && (
-            <Link to={seeAllHref} className="text-caption mr-2 shrink-0 font-semibold text-amber-300 hover:text-amber-200">
-              See all
+            <Link
+              to={seeAllHref}
+              className="text-caption mr-1 font-bold text-amber-300 hover:text-amber-200 flex items-center gap-0.5 transition-all hover:translate-x-0.5"
+            >
+              See all <IoChevronForward className="text-xs" />
             </Link>
           )}
 
           {status === "ready" && (
-            <div className="flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1">
               <button
                 type="button"
                 aria-label="Scroll left"
@@ -241,12 +245,12 @@ const Section = ({
         <div className="relative">
           {/* Subtle Left Fade + Overlay Button */}
           {canScrollLeft && (
-            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 hidden w-16 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent sm:flex sm:items-center">
+            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 hidden w-16 bg-gradient-to-r from-[#0f0f10] via-[#0f0f10]/70 to-transparent sm:flex sm:items-center">
               <button
                 type="button"
                 aria-label="Scroll left"
                 onClick={() => handleScroll("left")}
-                className="pointer-events-auto -ml-2 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/80 text-white shadow-xl backdrop-blur-md transition hover:scale-110 hover:bg-amber-400 hover:text-black"
+                className="pointer-events-auto -ml-2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white shadow-xl backdrop-blur-md transition hover:scale-110 hover:bg-amber-400 hover:border-amber-400/40 hover:text-black"
               >
                 <IoChevronBack className="text-lg" />
               </button>
@@ -267,12 +271,12 @@ const Section = ({
 
           {/* Subtle Right Fade + Overlay Button */}
           {canScrollRight && (
-            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 hidden w-16 justify-end bg-gradient-to-l from-[#141414] via-[#141414]/70 to-transparent sm:flex sm:items-center">
+            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 hidden w-16 justify-end bg-gradient-to-l from-[#0f0f10] via-[#0f0f10]/70 to-transparent sm:flex sm:items-center">
               <button
                 type="button"
                 aria-label="Scroll right"
                 onClick={() => handleScroll("right")}
-                className="pointer-events-auto -mr-2 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/80 text-white shadow-xl backdrop-blur-md transition hover:scale-110 hover:bg-amber-400 hover:text-black"
+                className="pointer-events-auto -mr-2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white shadow-xl backdrop-blur-md transition hover:scale-110 hover:bg-amber-400 hover:border-amber-400/40 hover:text-black"
               >
                 <IoChevronForward className="text-lg" />
               </button>

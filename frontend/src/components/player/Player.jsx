@@ -44,6 +44,8 @@ const Player = () => {
 
   const audioRef = useRef(null);
   const [prevVolume, setPrevVolume] = useState(100);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
 
   // OS Notification, Lock-Screen, and Headphone Controls
   useMediaSession({
@@ -56,9 +58,6 @@ const Player = () => {
     duration,
     currentTime,
   });
-
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  const [scrubTime, setScrubTime] = useState(0);
 
   // Register Audio Engine controls with PlayerContext
   useEffect(() => {
@@ -108,6 +107,8 @@ const Player = () => {
     }
   };
 
+  const restoredTimeRef = useRef(true);
+
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       const dur = audioRef.current.duration;
@@ -115,6 +116,14 @@ const Player = () => {
         setDuration(dur);
       }
       audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
+      if (restoredTimeRef.current && currentTime > 0) {
+        try {
+          audioRef.current.currentTime = currentTime;
+        } catch {
+          // Ignore
+        }
+        restoredTimeRef.current = false;
+      }
       if (isPlaying) audioRef.current.play().catch(() => {});
     }
   };
@@ -164,56 +173,67 @@ const Player = () => {
       />
 
       {/* Desktop Transport Bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[92px] items-center gap-4 border-t border-white/10 bg-[#0f0f10]/97 px-4 shadow-[0_-8px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl md:flex md:px-6">
-        {/* Now playing thumbnail & title */}
+      <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[90px] items-center gap-4 border-t border-white/[0.07] bg-[#0c0c0d]/96 px-4 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:flex md:px-6">
+
+        {/* Left: Now playing thumbnail & title */}
         <button
           type="button"
           onClick={() => setIsNowPlayingOpen(true)}
-          className="flex w-[26%] min-w-0 items-center gap-3 text-left"
+          className="group flex w-[22%] min-w-0 items-center gap-3 text-left"
           aria-label="Open Now Playing"
         >
-          <img
-            src={currentSong.thumbnail_url}
-            alt=""
-            className="h-14 w-14 shrink-0 rounded-lg object-cover shadow-lg"
-          />
+          <div className="relative shrink-0">
+            <img
+              src={currentSong.thumbnail_url}
+              alt=""
+              className="h-14 w-14 rounded-xl object-cover shadow-lg shadow-black/50 transition-transform duration-300 group-hover:scale-105"
+            />
+            {/* Active glow ring */}
+            {isPlaying && (
+              <span className="absolute -inset-0.5 rounded-[14px] bg-amber-400/20 animate-pulse" />
+            )}
+          </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">{currentSong.title}</p>
-            <p className="truncate text-xs text-white/50">{currentSong.artist}</p>
+            <p className="truncate text-sm font-semibold text-white group-hover:text-amber-200 transition-colors" title={currentSong.title}>
+              {currentSong.title}
+            </p>
+            <p className="truncate text-xs text-white/45 mt-0.5" title={currentSong.artist}>
+              {currentSong.artist}
+            </p>
           </div>
         </button>
 
-        {/* Like */}
+        {/* Like button */}
         <button
           type="button"
           aria-label={isLiked(currentSong) ? "Unlike song" : "Like song"}
           onClick={() => toggleLike(currentSong)}
-          className={`shrink-0 text-xl transition hover:scale-110 ${
-            isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-white"
+          className={`shrink-0 text-lg transition-all duration-200 hover:scale-110 ${
+            isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-amber-300"
           }`}
         >
           {isLiked(currentSong) ? <IoMdHeart /> : <IoMdHeartEmpty />}
         </button>
 
-        {/* Controls */}
-        <div className="flex flex-1 flex-col items-center">
+        {/* Center: Transport controls + progress */}
+        <div className="flex flex-1 flex-col items-center justify-center gap-1.5">
           <div className="flex items-center gap-3 text-xl text-white">
             <button
               type="button"
               aria-label="Toggle shuffle"
               aria-pressed={shuffle}
               onClick={() => setShuffle((v) => !v)}
-              className={`rounded-full p-2 transition hover:bg-white/10 ${
-                shuffle ? "text-amber-300" : "text-white/55"
+              className={`rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${
+                shuffle ? "text-amber-300" : "text-white/45 hover:text-white"
               }`}
             >
-              <IoShuffle className="text-base" />
+              <IoShuffle className="text-[1.1rem]" />
             </button>
             <button
               type="button"
               aria-label="Previous"
               onClick={playPrevious}
-              className="rounded-full p-2 transition hover:bg-white/10"
+              className="rounded-full p-2 text-white/80 transition hover:bg-white/8 hover:text-white"
             >
               <IoPlaySkipBack />
             </button>
@@ -221,15 +241,15 @@ const Player = () => {
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
               onClick={() => setIsPlaying(!isPlaying)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-black transition hover:bg-amber-300 shadow-md active:scale-95"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/30 transition-all duration-200 hover:scale-105 hover:shadow-amber-500/40 active:scale-95"
             >
-              {isPlaying ? <IoPause /> : <IoPlay className="translate-x-0.5" />}
+              {isPlaying ? <IoPause className="text-[1.2rem]" /> : <IoPlay className="translate-x-0.5 text-[1.2rem]" />}
             </button>
             <button
               type="button"
               aria-label="Next"
               onClick={playNext}
-              className="rounded-full p-2 transition hover:bg-white/10"
+              className="rounded-full p-2 text-white/80 transition hover:bg-white/8 hover:text-white"
             >
               <IoPlaySkipForward />
             </button>
@@ -238,20 +258,21 @@ const Player = () => {
               aria-label={`Repeat: ${repeatMode}`}
               aria-pressed={repeatMode !== "off"}
               onClick={cycleRepeat}
-              className={`relative rounded-full p-2 transition hover:bg-white/10 ${
-                repeatMode !== "off" ? "text-amber-300" : "text-white/55"
+              className={`relative rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${
+                repeatMode !== "off" ? "text-amber-300" : "text-white/45 hover:text-white"
               }`}
             >
-              <IoRepeat className="text-base" />
+              <IoRepeat className="text-[1.1rem]" />
               {repeatMode === "one" && (
-                <span className="absolute -top-0.5 right-0 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black">
+                <span className="absolute -top-0.5 right-0 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black leading-none py-0.5">
                   1
                 </span>
               )}
             </button>
           </div>
 
-          <div className="mt-1.5 flex w-full max-w-xl items-center gap-2.5">
+          {/* Progress bar */}
+          <div className="flex w-full max-w-xl items-center gap-2.5">
             <span className="w-9 text-right text-[11px] tabular-nums text-white/40">
               {formatTime(displayTime)}
             </span>
@@ -278,15 +299,15 @@ const Player = () => {
           </div>
         </div>
 
-        {/* Right controls */}
-        <div className="flex w-[18%] min-w-fit items-center justify-end gap-2">
+        {/* Right controls: Queue, Volume, Expand */}
+        <div className="flex w-[18%] min-w-fit items-center justify-end gap-1">
           <button
             type="button"
             aria-label="Queue"
             onClick={() => setIsQueueOpen(true)}
-            className="rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-white/50 transition hover:bg-white/8 hover:text-white"
           >
-            <IoListOutline className="text-lg" />
+            <IoListOutline className="text-[1.2rem]" />
           </button>
 
           <div className="hidden items-center gap-1.5 lg:flex">
@@ -294,9 +315,9 @@ const Player = () => {
               type="button"
               aria-label={volume === 0 ? "Unmute" : "Mute"}
               onClick={toggleMute}
-              className="text-white/60 hover:text-white"
+              className="text-white/50 hover:text-white transition p-1"
             >
-              {volume === 0 ? <IoVolumeMute /> : <IoVolumeHigh />}
+              {volume === 0 ? <IoVolumeMute className="text-lg" /> : <IoVolumeHigh className="text-lg" />}
             </button>
             <input
               type="range"
@@ -305,17 +326,21 @@ const Player = () => {
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
               aria-label="Volume"
-              className="h-1.5 w-20 cursor-pointer accent-amber-400"
+              className="h-1 w-20 cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #eab34a ${volume}%, rgba(255,255,255,0.12) ${volume}%)`,
+              }}
             />
           </div>
 
           <button
             type="button"
             aria-label="Open Now Playing"
+            title="Expand Full Screen (Now Playing)"
             onClick={() => setIsNowPlayingOpen(true)}
-            className="rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-white/50 transition-all duration-200 hover:bg-white/10 hover:text-amber-300 hover:scale-110 active:scale-95"
           >
-            <IoExpand className="text-lg" />
+            <IoExpand className="text-[1.2rem]" />
           </button>
         </div>
       </div>

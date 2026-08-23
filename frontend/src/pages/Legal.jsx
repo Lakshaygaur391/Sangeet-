@@ -9,32 +9,32 @@ const DOCS = {
   privacy: {
     title: "Privacy Policy",
     summary:
-      "Learn how Sangeet handles information related to your use of the platform.",
+      "Learn how Sangeet protects your data with 100% security, 256-bit encryption, and privacy-first standards.",
     sections: [
       {
         heading: "Overview",
         content:
-          "Sangeet respects your privacy and is committed to handling information responsibly. This Privacy Policy explains what information may be collected when you use Sangeet, how that information may be used, and the choices available to you.",
+          "Sangeet respects your privacy and is committed to handling information responsibly with zero third-party monetization. This Privacy Policy explains what data is collected, how it is secured, and how your privacy rights are safeguarded.",
+      },
+      {
+        heading: "100% Data Security & Encryption",
+        content:
+          "All data transmitted between your device and Sangeet is protected using industry-standard 256-bit SSL/TLS encryption. User passwords are cryptographically salted and hashed using bcrypt. We implement strict internal access controls and isolated storage to ensure your account credentials, playlist metadata, and listening history remain 100% secure.",
       },
       {
         heading: "Information We Collect",
         content:
-          "Depending on the features you use, Sangeet may process information such as account details, preferences, playlists, listening activity, device information, and technical data required to operate and improve the platform.",
+          "When you register for a free account, we store basic profile details (name, email) and your listening preferences (liked songs, playlists, and recently played tracks) strictly to synchronize your audio experience across sessions and devices.",
       },
       {
-        heading: "How We Use Information",
+        heading: "Zero Data Selling & Third-Party Sharing",
         content:
-          "Information may be used to provide and maintain Sangeet, personalize your experience, improve platform performance, protect the service, troubleshoot issues, and communicate important service-related information.",
+          "We do not sell, rent, license, or monetize your personal information, email address, or musical habits to third-party ad networks or data brokers. Your information is used exclusively to operate and personalize Sangeet.",
       },
       {
-        heading: "Data Security",
+        heading: "Your Data Rights",
         content:
-          "We take reasonable technical and organizational measures to protect information against unauthorized access, alteration, disclosure, or destruction. No online service can guarantee absolute security.",
-      },
-      {
-        heading: "Your Choices",
-        content:
-          "You may have options to review, update, or delete certain account information depending on the features available to you. You can also contact Sangeet regarding privacy-related questions or requests.",
+          "You have full ownership of your data. You may review, modify, or request deletion of your account and associated library data at any time through our Support Center.",
       },
     ],
   },
@@ -42,32 +42,27 @@ const DOCS = {
   terms: {
     title: "Terms of Use",
     summary:
-      "The rules and conditions that apply when you access or use Sangeet.",
+      "The terms and conditions that govern your free access and streaming on Sangeet.",
     sections: [
       {
-        heading: "Acceptance of Terms",
+        heading: "100% Free Platform",
         content:
-          "By accessing or using Sangeet, you agree to use the platform responsibly and in accordance with these Terms of Use and applicable laws.",
+          "Sangeet is a 100% free music platform. There are no monthly subscription fees, credit card requirements, or paywalled music tiers.",
       },
       {
-        heading: "Using Sangeet",
+        heading: "Free Account Requirement for Audio Playback",
         content:
-          "You may use Sangeet for personal and lawful purposes. You must not misuse the platform, interfere with its operation, attempt unauthorized access, or use the service in a way that may harm other users or the platform.",
+          "Browsing the music catalog, searching artists, and viewing playlists is publicly open without an account. However, to stream audio tracks, create custom playlists, heart songs, and maintain playback queue state across browser reloads, users must register for a free Sangeet account. This ensures bandwidth allocation, low-latency streaming CDN delivery, and protection against automated bot scraping.",
       },
       {
-        heading: "Accounts",
+        heading: "Account Responsibility",
         content:
-          "If an account is required for a particular feature, you are responsible for maintaining the confidentiality of your account information and for activity performed through your account.",
+          "You are responsible for keeping your login credentials confidential. You agree to use Sangeet for lawful, personal, and non-commercial entertainment purposes only.",
       },
       {
-        heading: "Service Availability",
+        heading: "Service Availability & Content",
         content:
-          "Sangeet may be updated, modified, suspended, or temporarily unavailable from time to time. We aim to provide a reliable experience but cannot guarantee uninterrupted availability.",
-      },
-      {
-        heading: "Changes to These Terms",
-        content:
-          "These Terms may be updated when necessary. Continued use of Sangeet after an update means you acknowledge the revised terms.",
+          "We strive to maintain uninterrupted, lightning-fast streaming availability. Audio catalog updates, maintenance, or feature improvements may occur periodically to enhance your listening experience.",
       },
     ],
   },

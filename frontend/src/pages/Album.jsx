@@ -22,15 +22,13 @@ const Album = () => {
     albumService.getById(id).then((data) => {
       if (!cancelled) setAlbum(data);
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
 
   if (album === undefined) {
     return (
       <div className="space-y-6">
-        <div className="skeleton h-56 w-full rounded-3xl" />
+        <div className="skeleton h-64 w-full rounded-3xl" />
         <SkeletonList count={5} />
       </div>
     );
@@ -48,18 +46,38 @@ const Album = () => {
   const songs = (album.songs || []).map(normalizeSong);
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#141414] p-5 sm:flex-row sm:items-end">
-        <img src={album.coverImage} alt="" className="h-32 w-32 shrink-0 rounded-2xl object-cover shadow-xl sm:h-40 sm:w-40" />
-        <div className="min-w-0">
-          <p className="text-meta">Album</p>
-          <h1 className="text-h1 mt-1 truncate text-white">{album.name}</h1>
-          <p className="text-body mt-1 text-white/50">
-            {album.artist} · {album.releaseYear} · {songs.length} tracks
-          </p>
+    <div className="space-y-6">
+      {/* Hero header with blurred cover background */}
+      <header className="relative overflow-hidden rounded-3xl border border-white/[0.07]">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: album.coverImage ? `url(${album.coverImage})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            filter: "blur(60px) brightness(0.28) saturate(120%)",
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        <div className="relative flex flex-col gap-5 p-6 sm:flex-row sm:items-end md:p-8" style={{ minHeight: "14rem" }}>
+          <img
+            src={album.coverImage}
+            alt=""
+            className="h-36 w-36 shrink-0 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10 sm:h-44 sm:w-44"
+          />
+          <div className="min-w-0">
+            <p className="text-meta text-amber-400">Album</p>
+            <h1 className="text-h1 mt-1 truncate text-white">{album.name}</h1>
+            <p className="text-body mt-2 text-white/55">
+              {album.artist}
+              {album.releaseYear ? ` · ${album.releaseYear}` : ""}
+              {` · ${songs.length} ${songs.length === 1 ? "track" : "tracks"}`}
+            </p>
+          </div>
         </div>
       </header>
 
+      {/* Action bar */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -68,7 +86,8 @@ const Album = () => {
             if (!isAuthenticated) { openAuthPrompt("default"); return; }
             playSong(songs[0], songs, 0);
           }}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-black hover:bg-amber-300 disabled:opacity-30"
+          className="flex items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-30"
+          style={{ width: "3.25rem", height: "3.25rem" }}
           aria-label="Play album"
         >
           <IoPlay className="translate-x-0.5 text-xl" />
@@ -81,17 +100,19 @@ const Album = () => {
             const shuffled = [...songs].sort(() => 0.5 - Math.random());
             playSong(shuffled[0], shuffled, 0);
           }}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-white/70 hover:bg-white/5 disabled:opacity-30"
+          className="flex items-center justify-center rounded-full border border-white/15 text-white/60 transition hover:border-white/25 hover:bg-white/5 hover:text-white disabled:opacity-30"
+          style={{ width: "2.9rem", height: "2.9rem" }}
           aria-label="Shuffle album"
         >
           <IoShuffle className="text-lg" />
         </button>
       </div>
 
+      {/* Tracklist */}
       {songs.length === 0 ? (
         <EmptyState title="No tracks in this album" />
       ) : (
-        <div>
+        <div className="rounded-2xl border border-white/[0.07] bg-[#111112] p-2">
           {songs.map((song, i) => (
             <SongRow key={song._id || i} song={song} queue={songs} index={i} />
           ))}

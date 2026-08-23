@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Section from "../components/Section";
 import SongCard from "../components/song/SongCard";
+import MoodCard from "../components/mood/MoodCard";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
 import LoadMoreButton from "../components/ui/LoadMoreButton";
-import { usePlayer } from "../context/PlayerContext";
 import songService, { getCachedCatalogSync } from "../services/songService";
 import { normalizeSong, getSongDecade } from "../lib/media";
 
@@ -25,7 +25,7 @@ const MAINSTREAM_ARTISTS = new Set([
   "karan aujla", "sidhu moose wala", "b praak", "pritam", "atif aslam"
 ]);
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 24;
 
 const Discover = () => {
   const cached = getCachedCatalogSync();
@@ -162,39 +162,49 @@ const Discover = () => {
     return viral.length > 20 ? stableShuffle(viral, 29) : stableShuffle(songs, 29);
   }, [songs]);
 
-  // ── Mood Collections
-  const lateNightDrive = useMemo(() => {
-    const slow = songs.filter((s) => {
-      const t = (s.title || "").toLowerCase();
-      const a = (s.artist || "").toLowerCase();
-      return t.includes("dil") || t.includes("ishq") || t.includes("yaad") || a.includes("arijit") || a.includes("atif") || a.includes("jasleen");
-    });
-    return stableShuffle(slow.length > 6 ? slow : songs, 5).slice(0, 8);
-  }, [songs]);
-
-  const desiHype = useMemo(() => {
-    const hype = songs.filter((s) => {
-      const lang = (s.language || "").toLowerCase();
-      return lang.includes("punjabi") || lang.includes("haryanvi");
-    });
-    return stableShuffle(hype.length > 6 ? hype : songs, 31).slice(0, 8);
-  }, [songs]);
-
-  const monsoonMelodies = useMemo(() => {
-    const romantic = songs.filter((s) => {
-      const t = (s.title || "").toLowerCase();
-      return t.includes("baarish") || t.includes("barsaat") || t.includes("pyaar") || t.includes("tere") || t.includes("tum");
-    });
-    return stableShuffle(romantic.length > 6 ? romantic : songs, 17).slice(0, 8);
-  }, [songs]);
-
-  const chillVibes = useMemo(() => {
-    const chill = songs.filter((s) => {
-      const lang = (s.language || "").toLowerCase();
-      return lang.includes("indipop") || lang.includes("english") || s.title.toLowerCase().includes("instrumental");
-    });
-    return stableShuffle(chill.length > 6 ? chill : songs, 41).slice(0, 8);
-  }, [songs]);
+  // ── Atmospheric Moods Configuration
+  const moods = [
+    {
+      label: "Late Night Drive",
+      description: "Neon highways, atmospheric lo-fi & late-night cruising rhythms",
+      seed: 5,
+      borderClass: "border-indigo-500/25 hover:border-indigo-400/45",
+      bgClass: "bg-gradient-to-br from-[#121024] via-[#0d0d12] to-[#08080a]",
+      glowClass: "bg-indigo-600/25",
+      accentTextClass: "text-indigo-400",
+      playBtnClass: "bg-gradient-to-br from-indigo-400 to-indigo-600 hover:from-indigo-300 hover:to-indigo-500",
+    },
+    {
+      label: "Monsoon Moods",
+      description: "Soulful acoustic melodies, raindrops & cozy chai-time classics",
+      seed: 17,
+      borderClass: "border-teal-500/25 hover:border-teal-400/45",
+      bgClass: "bg-gradient-to-br from-[#0c1c1a] via-[#0b1112] to-[#08080a]",
+      glowClass: "bg-teal-500/25",
+      accentTextClass: "text-teal-300",
+      playBtnClass: "bg-gradient-to-br from-teal-300 to-emerald-500 hover:from-teal-200 hover:to-emerald-400",
+    },
+    {
+      label: "Desi Hype",
+      description: "High-octane Punjabi bhangra, hip-hop & bass-boosted party anthems",
+      seed: 31,
+      borderClass: "border-rose-500/25 hover:border-rose-400/45",
+      bgClass: "bg-gradient-to-br from-[#200e14] via-[#120b0d] to-[#08080a]",
+      glowClass: "bg-rose-600/25",
+      accentTextClass: "text-rose-400",
+      playBtnClass: "bg-gradient-to-br from-rose-400 to-amber-500 hover:from-rose-300 hover:to-amber-400",
+    },
+    {
+      label: "Chill & Study",
+      description: "Focus flow, relaxing acoustic strings & soothing ambient instrumentals",
+      seed: 41,
+      borderClass: "border-amber-500/25 hover:border-amber-400/45",
+      bgClass: "bg-gradient-to-br from-[#1e170c] via-[#12100d] to-[#08080a]",
+      glowClass: "bg-amber-500/25",
+      accentTextClass: "text-amber-300",
+      playBtnClass: "bg-gradient-to-br from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400",
+    },
+  ];
 
   const cardsFor = (list) => (song, i) => (
     <div key={`${song?._id || song?.audio_url}-${i}`} className="w-36 shrink-0 sm:w-40 md:w-44">
@@ -202,18 +212,35 @@ const Discover = () => {
     </div>
   );
 
-  const sectionStatus = status === "loading" ? "loading" : status === "error" ? "error" : songs.length === 0 ? "empty" : "ready";
+  const sectionStatus =
+    status === "loading"
+      ? "loading"
+      : status === "error"
+      ? "error"
+      : songs.length === 0
+      ? "empty"
+      : "ready";
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="rounded-2xl border border-white/10 bg-[#141414] px-5 py-4">
-        <p className="text-meta text-amber-300">Discover Music</p>
-        <h1 className="text-display mt-1 text-white">Curated Collections, Eras &amp; New Waves</h1>
-        <p className="text-body mt-1 text-white/45">Explore fresh voices, 90s nostalgia, 2000s classics, and mood-crafted soundtracks.</p>
+    <div className="space-y-6 md:space-y-8">
+      {/* Editorial Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#1c1a14] via-[#121214] to-[#0a0a0c] p-6 shadow-2xl md:p-8">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+            <p className="text-meta font-extrabold tracking-widest text-amber-300">DISCOVER SANGEET</p>
+          </div>
+          <h1 className="text-display mt-2 font-black text-white text-3xl sm:text-4xl md:text-5xl">
+            Curated Collections &amp; Eras
+          </h1>
+          <p className="text-body mt-2 max-w-2xl text-white/60">
+            Curated corners, mood mixes, 90s &amp; 2000s classics, and hand-picked gems crafted for you.
+          </p>
+        </div>
       </div>
 
-      {/* ── 1. Today's Top Picks ── */}
+      {/* ── 1. Today's Picks ── */}
       <Section title="Today's Top Picks" eyebrow="Daily Refresh" status={sectionStatus} onRetry={() => window.location.reload()}>
         {todaysPicks.slice(0, todaysVisible).map(cardsFor(todaysPicks))}
       </Section>
@@ -221,11 +248,35 @@ const Discover = () => {
         <LoadMoreButton
           onClick={() => setTodaysVisible((v) => v + PAGE_SIZE)}
           disabled={todaysVisible >= todaysPicks.length}
-          label="Load More"
+          label="Load More Picks"
         />
       )}
 
-      {/* ── 2. New Voices & Breakthrough Releases ── */}
+      {/* ── 2. Mood & Moments (Atmospheric Soundtracks) ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-meta font-bold text-amber-400">Atmospheric Soundtracks</p>
+            <h2 className="text-h2 font-black text-white">Moods &amp; Moments</h2>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {moods.map((mood) => {
+            const list = stableShuffle(songs, mood.seed).slice(0, 10);
+            return (
+              <MoodCard
+                key={mood.label}
+                mood={mood}
+                songs={list}
+                onAddToPlaylist={setAddToPlaylistSong}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 3. New Voices & Breakthrough Releases ── */}
       <Section title="New Voices" eyebrow="Fresh &amp; Emerging Artists (2026/2025)" status={sectionStatus}>
         {newVoices.slice(0, newVoicesVisible).map(cardsFor(newVoices))}
       </Section>
@@ -233,11 +284,11 @@ const Discover = () => {
         <LoadMoreButton
           onClick={() => setNewVoicesVisible((v) => v + PAGE_SIZE)}
           disabled={newVoicesVisible >= newVoices.length}
-          label="Load More"
+          label="Load More New Voices"
         />
       )}
 
-      {/* ── 3. 90s Evergreen Bollywood Spotlight (1990–2000) ── */}
+      {/* ── 4. 90s Evergreen Bollywood Spotlight (1990–2000) ── */}
       {ninetiesClassics.length > 0 && (
         <div id="discover-90s">
           <Section
@@ -256,7 +307,7 @@ const Discover = () => {
         </div>
       )}
 
-      {/* ── 4. 2000s Golden Era Bollywood (2000–2010) ── */}
+      {/* ── 5. 2000s Golden Era Bollywood (2000–2010) ── */}
       {twothousandsHits.length > 0 && (
         <div id="discover-2000s">
           <Section
@@ -275,7 +326,7 @@ const Discover = () => {
         </div>
       )}
 
-      {/* ── 5. 2010s Blockbuster Anthems (2010–2020) ── */}
+      {/* ── 6. 2010s Blockbuster Anthems (2010–2020) ── */}
       {twentyTensHits.length > 0 && (
         <div id="discover-2010s">
           <Section
@@ -294,61 +345,6 @@ const Discover = () => {
         </div>
       )}
 
-      {/* ── 6. Mood & Moments Grids ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
-        {/* Late Night Drive */}
-        <div className="rounded-2xl border border-white/10 bg-[#141414] p-4">
-          <p className="text-meta text-amber-300/80 mb-1">Mood &amp; Moments</p>
-          <h3 className="text-h3 mb-3 text-white">Late Night Drive</h3>
-          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {lateNightDrive.map((s, i) => (
-              <div key={`lnd-${s._id || i}`} className="w-28 shrink-0 sm:w-32">
-                <SongCard song={s} queue={lateNightDrive} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Desi Hype */}
-        <div className="rounded-2xl border border-white/10 bg-[#141414] p-4">
-          <p className="text-meta text-amber-300/80 mb-1">Party &amp; Workout</p>
-          <h3 className="text-h3 mb-3 text-white">Desi Hype Bangerz</h3>
-          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {desiHype.map((s, i) => (
-              <div key={`dh-${s._id || i}`} className="w-28 shrink-0 sm:w-32">
-                <SongCard song={s} queue={desiHype} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Monsoon Melodies */}
-        <div className="rounded-2xl border border-white/10 bg-[#141414] p-4">
-          <p className="text-meta text-amber-300/80 mb-1">Melodic Romance</p>
-          <h3 className="text-h3 mb-3 text-white">Monsoon &amp; Rain Melodies</h3>
-          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {monsoonMelodies.map((s, i) => (
-              <div key={`mm-${s._id || i}`} className="w-28 shrink-0 sm:w-32">
-                <SongCard song={s} queue={monsoonMelodies} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chill & Focus */}
-        <div className="rounded-2xl border border-white/10 bg-[#141414] p-4">
-          <p className="text-meta text-amber-300/80 mb-1">Relax &amp; Lo-Fi</p>
-          <h3 className="text-h3 mb-3 text-white">Chill &amp; Focus Vibes</h3>
-          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {chillVibes.map((s, i) => (
-              <div key={`cv-${s._id || i}`} className="w-28 shrink-0 sm:w-32">
-                <SongCard song={s} queue={chillVibes} index={i} onAddToPlaylist={setAddToPlaylistSong} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* ── 7. Editor's Picks ── */}
       <Section title="Editor's Picks" eyebrow="Chartbusters &amp; Superstars" status={sectionStatus}>
         {editorsPicks.slice(0, editorsVisible).map(cardsFor(editorsPicks))}
@@ -357,7 +353,7 @@ const Discover = () => {
         <LoadMoreButton
           onClick={() => setEditorsVisible((v) => v + PAGE_SIZE)}
           disabled={editorsVisible >= editorsPicks.length}
-          label="Load More"
+          label="Load More Picks"
         />
       )}
 
@@ -369,7 +365,7 @@ const Discover = () => {
         <LoadMoreButton
           onClick={() => setGemsVisible((v) => v + PAGE_SIZE)}
           disabled={gemsVisible >= hiddenGems.length}
-          label="Load More"
+          label="Load More Gems"
         />
       )}
 
@@ -381,7 +377,7 @@ const Discover = () => {
         <LoadMoreButton
           onClick={() => setRisingVisible((v) => v + PAGE_SIZE)}
           disabled={risingVisible >= risingNow.length}
-          label="Load More"
+          label="Load More Rising Tracks"
         />
       )}
 

@@ -10,9 +10,8 @@ const Modal = ({ open, onClose, title, children, maxWidth = "max-w-md" }) => {
       if (e.key === "Escape") onClose?.();
     };
     document.addEventListener("keydown", handleKey);
-    dialogRef.current?.focus();
     return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

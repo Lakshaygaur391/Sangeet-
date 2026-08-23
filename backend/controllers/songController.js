@@ -1,13 +1,49 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
+import mongoose from "mongoose";
 import Song from "../models/Song.js";
 import { scrapeCategoryPage } from "../services/scraperService.js";
 
-// ── YouTube helpers ───────────────────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ── YouTube & Search helpers ───────────────────────────────────────────────────
 
 const youtubeCache = new Map();
 const searchCache = new Map();
 const SEARCH_CACHE_TTL = 3 * 60 * 1000; // 3 minutes TTL
 const MAX_SEARCH_CACHE_SIZE = 250;
+let cachedLocalSongs = null;
+
+// Read and cache local JSON songs fallback
+export const getLocalSongs = () => {
+  if (cachedLocalSongs && cachedLocalSongs.length > 0) {
+    return cachedLocalSongs;
+  }
+  const possiblePaths = [
+    path.join(__dirname, "../data/songs.json"),
+    path.join(process.cwd(), "backend/data/songs.json"),
+    path.join(process.cwd(), "data/songs.json"),
+    path.join(process.cwd(), "../backend/data/songs.json"),
+  ];
+  for (const filePath of possiblePaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cachedLocalSongs = parsed;
+          return cachedLocalSongs;
+        }
+      }
+    } catch (err) {
+      console.error(`Failed loading songs from ${filePath}:`, err.message);
+    }
+  }
+  return [];
+};
 
 function getCachedSearch(key) {
   const item = searchCache.get(key);
@@ -164,37 +200,39 @@ export const resolveYouTubeUrl = async (title, artist) => {
     return youtubeCache.get(cacheKey);
   }
 
-  try {
-    const existingSong = await Song.findOne({
-      title: new RegExp(`^${normTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i"),
-      artist: new RegExp(`^${normArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i"),
-      youtube_url: { $ne: "" },
-    }).lean();
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const existingSong = await Song.findOne({
+        title: new RegExp(`^${normTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        artist: new RegExp(`^${normArtist.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        youtube_url: { $ne: "" },
+      }).lean();
 
-    if (existingSong && existingSong.youtube_url) {
-      const videoIdMatch = existingSong.youtube_url.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
-      const videoId = videoIdMatch?.[1] || "";
-      const result = {
-        videoId,
-        youtube_url: existingSong.youtube_url,
-        thumbnail_url: existingSong.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""),
-      };
-      youtubeCache.set(cacheKey, result);
-      return result;
+      if (existingSong && existingSong.youtube_url) {
+        const videoIdMatch = existingSong.youtube_url.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+        const videoId = videoIdMatch?.[1] || "";
+        const result = {
+          videoId,
+          youtube_url: existingSong.youtube_url,
+          thumbnail_url: existingSong.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""),
+        };
+        youtubeCache.set(cacheKey, result);
+        return result;
+      }
+    } catch (e) {
+      // Ignore query fallback errors
     }
-  } catch (e) {
-    // Ignore query fallback errors
   }
 
   const combinedQuery = `${normalizeQuery(normTitle)} ${normalizeQuery(normArtist)}`.trim();
   const result = await resolveYouTubeQuery(combinedQuery);
 
-  if (result) {
+  if (result && mongoose.connection.readyState === 1) {
     youtubeCache.set(cacheKey, result);
     Song.updateMany(
       {
-        title: new RegExp(`^${normTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i"),
-        artist: new RegExp(`^${normArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i"),
+        title: new RegExp(`^${normTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        artist: new RegExp(`^${normArtist.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
       },
       {
         youtube_url: result.youtube_url,
@@ -394,14 +432,17 @@ async function buildHomeFeed() {
     }
   });
 
+  const topArtists = ["arijit singh", "diljit dosanjh", "badshah", "shreya ghoshal", "neha kakkar", "guru randhawa", "ap dhillon", "masoom sharma", "khasa aala chahar", "renuka panwar", "r nait", "sumit goswami", "sidhu moose wala", "karan aujla", "anuv jain", "prateek kuhad", "jubin nautiyal", "armaan malik", "atif aslam"];
+
   // Normalise artists from aggregation
-  const artists = artistsRaw
+  const artists = (artistsRaw || [])
     .filter((a) => a.name && a.name !== "Unknown Artist")
     .map((a) => ({
       id: a.name,
       name: a.name,
       image: a.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name)}&background=1c1c1e&color=eab34a`,
       songCount: a.songCount,
+      verified: topArtists.includes((a.name || "").toLowerCase()) || a.songCount >= 3,
     }));
 
   return {
@@ -412,7 +453,7 @@ async function buildHomeFeed() {
     twothousands,
     trending,
     regional,
-    albums: albumsRaw,
+    albums: albumsRaw || [],
     artists,
     totalCatalogCount: totalDoc,
   };
@@ -450,37 +491,60 @@ export const getAllSongs = async (req, res) => {
     const match = { audio_url: { $exists: true, $ne: "" } };
     if (language) match.language = new RegExp(`^${language}$`, "i");
 
-    if (isPaginated) {
-      const [total, songs] = await Promise.all([
-        Song.countDocuments(match),
-        Song.find(match)
-          .select(SONG_FIELDS)
-          .sort({ year: -1, title: 1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean(),
-      ]);
+    if (mongoose.connection.readyState === 1) {
+      if (isPaginated) {
+        const [total, songs] = await Promise.all([
+          Song.countDocuments(match),
+          Song.find(match)
+            .select(SONG_FIELDS)
+            .sort({ year: -1, title: 1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean(),
+        ]);
+
+        res.setHeader("Cache-Control", "public, max-age=180");
+        return res.json({
+          songs,
+          total,
+          page,
+          limit,
+          hasMore: page * limit < total,
+        });
+      }
+
+      const songs = await Song.find(match)
+        .select(SONG_FIELDS)
+        .sort({ year: -1, _id: -1 })
+        .limit(limit)
+        .lean();
 
       res.setHeader("Cache-Control", "public, max-age=180");
-      return res.json({
-        songs,
-        total,
-        page,
-        limit,
-        hasMore: page * limit < total,
-      });
+      return res.json(songs);
     }
 
-    const songs = await Song.find(match)
-      .select(SONG_FIELDS)
-      .sort({ year: -1, _id: -1 })
-      .limit(limit)
-      .lean();
-
-    res.setHeader("Cache-Control", "public, max-age=180");
-    return res.json(songs);
+    // Fallback if DB not connected
+    let allSongs = getLocalSongs().filter((s) => s.audio_url && s.audio_url.trim() !== "");
+    if (language) {
+      allSongs = allSongs.filter((s) => (s.language || "").toLowerCase() === language.toLowerCase());
+    }
+    const normalizedSongs = dedupeSongs(allSongs);
+    if (isPaginated) {
+      const startIndex = (page - 1) * limit;
+      const songs = normalizedSongs.slice(startIndex, startIndex + limit);
+      return res.json({
+        songs,
+        total: normalizedSongs.length,
+        page,
+        limit,
+        hasMore: startIndex + limit < normalizedSongs.length,
+      });
+    }
+    res.json(normalizedSongs.slice(0, limit));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Error in getAllSongs:", err.message);
+    const local = dedupeSongs(getLocalSongs().filter((s) => s.audio_url));
+    res.json(local);
   }
 };
 
@@ -496,36 +560,57 @@ export const getSongsByLanguage = async (req, res) => {
       language: new RegExp(`^${language}$`, "i"),
     };
 
-    if (isPaginated) {
-      const [total, songs] = await Promise.all([
-        Song.countDocuments(match),
-        Song.find(match)
-          .select(SONG_FIELDS)
-          .sort({ year: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean(),
-      ]);
+    if (mongoose.connection.readyState === 1) {
+      if (isPaginated) {
+        const [total, songs] = await Promise.all([
+          Song.countDocuments(match),
+          Song.find(match)
+            .select(SONG_FIELDS)
+            .sort({ year: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean(),
+        ]);
+
+        res.setHeader("Cache-Control", "public, max-age=180");
+        return res.json({
+          songs,
+          total,
+          page,
+          limit,
+          hasMore: page * limit < total,
+        });
+      }
+
+      const songs = await Song.find(match)
+        .select(SONG_FIELDS)
+        .sort({ year: -1 })
+        .limit(limit)
+        .lean();
 
       res.setHeader("Cache-Control", "public, max-age=180");
-      return res.json({
-        songs,
-        total,
-        page,
-        limit,
-        hasMore: page * limit < total,
-      });
+      return res.json(songs);
     }
 
-    const songs = await Song.find(match)
-      .select(SONG_FIELDS)
-      .sort({ year: -1 })
-      .limit(limit)
-      .lean();
-
-    res.setHeader("Cache-Control", "public, max-age=180");
-    return res.json(songs);
+    // Local fallback
+    const langKey = (language || "").trim().toLowerCase();
+    const allSongs = getLocalSongs().filter(
+      (s) => s.audio_url && s.audio_url.trim() !== "" && (s.language || "").trim().toLowerCase() === langKey
+    );
+    const normalizedSongs = dedupeSongs(allSongs);
+    if (isPaginated) {
+      const startIndex = (page - 1) * limit;
+      return res.json({
+        songs: normalizedSongs.slice(startIndex, startIndex + limit),
+        total: normalizedSongs.length,
+        page,
+        limit,
+        hasMore: startIndex + limit < normalizedSongs.length,
+      });
+    }
+    res.json(normalizedSongs);
   } catch (err) {
+    console.error("Error in getSongsByLanguage:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
@@ -537,36 +622,75 @@ export const getArtists = async (req, res) => {
       return res.json(artistsCache);
     }
 
-    // Aggregate in MongoDB — no full document load
-    const raw = await Song.aggregate([
-      { $match: { audio_url: { $exists: true, $ne: "" } } },
-      {
-        $group: {
-          _id: "$artist",
-          name: { $first: "$artist" },
-          image: { $first: "$thumbnail_url" },
-          songCount: { $sum: 1 },
+    const topArtists = ["arijit singh", "diljit dosanjh", "badshah", "shreya ghoshal", "neha kakkar", "guru randhawa", "ap dhillon", "masoom sharma", "khasa aala chahar", "renuka panwar", "r nait", "sumit goswami", "sidhu moose wala", "karan aujla", "anuv jain", "prateek kuhad", "jubin nautiyal", "armaan malik", "atif aslam"];
+
+    if (mongoose.connection.readyState === 1) {
+      // Aggregate in MongoDB — no full document load
+      const raw = await Song.aggregate([
+        { $match: { audio_url: { $exists: true, $ne: "" } } },
+        {
+          $group: {
+            _id: "$artist",
+            name: { $first: "$artist" },
+            image: { $first: "$thumbnail_url" },
+            songCount: { $sum: 1 },
+          },
         },
-      },
-      { $sort: { songCount: -1 } },
-      { $limit: 500 },
-    ]);
+        { $sort: { songCount: -1 } },
+        { $limit: 500 },
+      ]);
 
-    const artists = raw
-      .filter((a) => a.name && a.name !== "Unknown Artist")
-      .map((a) => ({
-        id: a.name,
-        name: a.name,
-        image: a.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name)}&background=1c1c1e&color=eab34a`,
-        songCount: a.songCount,
-      }));
+      const artists = raw
+        .filter((a) => a.name && a.name !== "Unknown Artist")
+        .map((a) => ({
+          id: a.name,
+          name: a.name,
+          image: a.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name)}&background=1c1c1e&color=eab34a`,
+          songCount: a.songCount,
+          verified: topArtists.includes((a.name || "").toLowerCase()) || a.songCount >= 3,
+        }));
 
-    artistsCache = artists;
-    artistsCacheExpiry = Date.now() + SECTION_TTL;
+      artistsCache = artists;
+      artistsCacheExpiry = Date.now() + SECTION_TTL;
 
-    res.setHeader("Cache-Control", "public, max-age=180");
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json(artists);
+    }
+
+    // Local fallback
+    const songs = getLocalSongs().filter((s) => s.audio_url && s.audio_url.trim() !== "");
+    const dedupedSongs = dedupeSongs(songs);
+    const artistMap = new Map();
+
+    dedupedSongs.forEach((song) => {
+      const cleaned = normalizeSongRecord(song);
+      const rawName = cleaned.artist;
+      if (!rawName || rawName === "Unknown Artist") return;
+      const normalizedName = rawName.replace(/\s+/g, " ").trim();
+      const artistKey = normalizedName.toLowerCase();
+
+      if (!artistMap.has(artistKey)) {
+        artistMap.set(artistKey, {
+          id: normalizedName,
+          name: normalizedName,
+          image: cleaned.thumbnail_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(normalizedName)}&background=18181b&color=eab34a`,
+          songCount: 0,
+        });
+      }
+
+      const entry = artistMap.get(artistKey);
+      entry.songCount += 1;
+      if (!entry.image && cleaned.thumbnail_url) entry.image = cleaned.thumbnail_url;
+    });
+
+    const artists = Array.from(artistMap.values()).map((artist) => ({
+      ...artist,
+      verified: topArtists.includes(artist.name.toLowerCase()) || artist.songCount >= 3,
+    }));
+
     res.json(artists);
   } catch (err) {
+    console.error("Error in getArtists:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
@@ -616,46 +740,88 @@ export const scrapeCategorySongs = async (req, res) => {
 export const searchSongs = async (req, res) => {
   try {
     const rawQuery = String(req.query.q || req.query.query || "").trim();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 60, 100);
+
     if (!rawQuery) {
       return res.json([]);
     }
 
-    const cacheKey = rawQuery.toLowerCase();
+    const cacheKey = `${rawQuery.toLowerCase()}::${limit}`;
     const cached = getCachedSearch(cacheKey);
     if (cached) {
       res.setHeader("Cache-Control", "public, max-age=120");
       return res.json(cached);
     }
 
-    const limit = Math.min(parseInt(req.query.limit, 10) || 60, 100);
-    const escaped = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const safeRegex = new RegExp(escaped, "i");
-    const prefixRegex = new RegExp(`^${escaped}`, "i");
+    let deduped = [];
 
-    const [prefixMatches, substringMatches] = await Promise.all([
-      Song.find({
-        audio_url: { $exists: true, $ne: "" },
-        $or: [{ title: prefixRegex }, { artist: prefixRegex }],
-      })
-        .select(SONG_FIELDS)
-        .limit(limit)
-        .lean(),
-      Song.find({
-        audio_url: { $exists: true, $ne: "" },
-        $or: [{ title: safeRegex }, { artist: safeRegex }, { language: safeRegex }, { album: safeRegex }],
-      })
-        .select(SONG_FIELDS)
-        .limit(limit)
-        .lean(),
-    ]);
+    if (mongoose.connection.readyState === 1) {
+      const escaped = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const safeRegex = new RegExp(escaped, "i");
+      const prefixRegex = new RegExp(`^${escaped}`, "i");
 
-    const combined = [...prefixMatches, ...substringMatches];
-    const deduped = dedupeSongs(combined).slice(0, limit);
+      const [prefixMatches, substringMatches] = await Promise.all([
+        Song.find({
+          audio_url: { $exists: true, $ne: "" },
+          $or: [{ title: prefixRegex }, { artist: prefixRegex }],
+        })
+          .select(SONG_FIELDS)
+          .limit(limit)
+          .lean(),
+        Song.find({
+          audio_url: { $exists: true, $ne: "" },
+          $or: [{ title: safeRegex }, { artist: safeRegex }, { language: safeRegex }, { album: safeRegex }],
+        })
+          .select(SONG_FIELDS)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      const combined = [...prefixMatches, ...substringMatches];
+      deduped = dedupeSongs(combined).slice(0, limit);
+    }
+
+    if (!deduped || deduped.length === 0) {
+      const q = rawQuery.toLowerCase();
+      const tokens = q.split(/\s+/).filter(Boolean);
+
+      const matchedSongs = getLocalSongs().filter((s) => {
+        if (!s.audio_url || s.audio_url.trim() === "") return false;
+        const title = (s.title || "").toLowerCase();
+        const artist = (s.artist || "").toLowerCase();
+        const lang = (s.language || "").toLowerCase();
+
+        if (title.includes(q) || artist.includes(q) || lang.includes(q)) return true;
+        if (tokens.length > 1) {
+          return tokens.every((tok) => title.includes(tok) || artist.includes(tok) || lang.includes(tok));
+        }
+        return false;
+      });
+
+      const qLower = rawQuery.toLowerCase();
+      deduped = dedupeSongs(matchedSongs)
+        .map((s) => {
+          const title = (s.title || "").toLowerCase();
+          const artist = (s.artist || "").toLowerCase();
+          let score = 0;
+          if (title === qLower) score += 100;
+          else if (title.startsWith(qLower)) score += 60;
+          else if (title.includes(qLower)) score += 35;
+          if (artist === qLower) score += 80;
+          else if (artist.startsWith(qLower)) score += 50;
+          else if (artist.includes(qLower)) score += 25;
+          return { song: s, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((item) => item.song)
+        .slice(0, limit);
+    }
 
     setCachedSearch(cacheKey, deduped);
     res.setHeader("Cache-Control", "public, max-age=120");
     return res.json(deduped);
   } catch (err) {
+    console.error("Error in searchSongs:", err.message);
     res.status(500).json({ message: err.message });
   }
 };

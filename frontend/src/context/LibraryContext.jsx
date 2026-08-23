@@ -38,6 +38,7 @@ export const LibraryProvider = ({ children }) => {
   const [likedSongs, setLikedSongs] = useState(() => loadLocal(likedKey, []));
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => loadLocal(recentKey, []));
   const [playlists, setPlaylists] = useState(() => loadLocal(playlistsKey, []));
+  const [yearlyPlaylists, setYearlyPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Reload local cache immediately when the signed-in user changes.
@@ -47,8 +48,39 @@ export const LibraryProvider = ({ children }) => {
     setPlaylists(loadLocal(playlistsKey, []));
   }, [scopeKey, likedKey, recentKey, playlistsKey]);
 
-  // Try to hydrate from the backend; silently keep local data if those
-  // endpoints aren't implemented yet (services fail soft and return null).
+  // Load yearly playlists (available to everyone, guest or authenticated)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadYears() {
+      const years = await playlistService.getYears();
+      if (!cancelled) {
+        if (Array.isArray(years) && years.length > 0) {
+          setYearlyPlaylists(years);
+        } else {
+          const currentYear = new Date().getFullYear();
+          const fallbackYears = [];
+          for (let y = currentYear; y >= 2000; y--) {
+            fallbackYears.push({
+              id: `year-${y}`,
+              year: y,
+              name: `${y}`,
+              title: `${y}`,
+              description: `Music released in ${y}`,
+              owner: "Sangeet",
+              isYearly: true,
+            });
+          }
+          setYearlyPlaylists(fallbackYears);
+        }
+      }
+    }
+    loadYears();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Try to hydrate user library from the backend
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
@@ -96,7 +128,6 @@ export const LibraryProvider = ({ children }) => {
       setLikedSongs((prev) => (already ? prev.filter((s) => songId(s) !== id) : [song, ...prev]));
       toast(already ? "Removed from Liked Songs" : "Added to Liked Songs", "success");
 
-      // Best-effort sync; ignore failure since local state is already source of truth.
       if (already) libraryService.unlike(id);
       else libraryService.like(id);
     },
@@ -105,12 +136,24 @@ export const LibraryProvider = ({ children }) => {
 
   const recordRecentlyPlayed = useCallback(
     (rawSong) => {
-      const song = normalizeSong(rawSong);
+      const song = {
+        ...normalizeSong(rawSong),
+        playedAt: new Date().toISOString(),
+      };
       const id = songId(song);
       setRecentlyPlayed((prev) => [song, ...prev.filter((s) => songId(s) !== id)].slice(0, RECENT_LIMIT));
       libraryService.recordPlay(id);
     },
     []
+  );
+
+  const removeFromRecentlyPlayed = useCallback(
+    (targetSong) => {
+      const id = songId(targetSong);
+      setRecentlyPlayed((prev) => prev.filter((s) => songId(s) !== id));
+      toast("Removed from recently played", "info");
+    },
+    [toast]
   );
 
   const clearRecentlyPlayed = useCallback(() => {
@@ -120,7 +163,7 @@ export const LibraryProvider = ({ children }) => {
   }, [toast]);
 
   const createPlaylist = useCallback(
-    async ({ name, description = "", coverImage = "", isPublic = false }) => {
+    async ({ name, description = "", coverImage = "", isPublic = true }) => {
       if (!isAuthenticated) {
         openAuthPrompt("playlist");
         return null;
@@ -132,12 +175,14 @@ export const LibraryProvider = ({ children }) => {
       }
 
       const localPlaylist = {
-        id: `local-${Date.now()}`,
+        id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: trimmedName,
         description,
         coverImage,
         isPublic,
         songs: [],
+        owner: user?.name || "You",
+        isYearly: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -148,7 +193,7 @@ export const LibraryProvider = ({ children }) => {
       toast(`Playlist "${trimmedName}" created`, "success");
       return playlist;
     },
-    [isAuthenticated, openAuthPrompt, toast]
+    [isAuthenticated, openAuthPrompt, toast, user]
   );
 
   const deletePlaylist = useCallback(
@@ -187,7 +232,7 @@ export const LibraryProvider = ({ children }) => {
           return { ...p, songs: [...(p.songs || []), song] };
         })
       );
-      playlistService.addSong(id, songId(song));
+      playlistService.addSong(id, songId(song), song);
       toast(added ? "Added to playlist" : "Already in this playlist", added ? "success" : "info");
     },
     [isAuthenticated, openAuthPrompt, toast]
@@ -209,10 +254,7 @@ export const LibraryProvider = ({ children }) => {
 
   const reorderPlaylist = useCallback((id, songs) => {
     setPlaylists((prev) => prev.map((p) => ((p.id || p._id) === id ? { ...p, songs } : p)));
-    playlistService.reorder(
-      id,
-      songs.map((s) => songId(s))
-    );
+    playlistService.reorder(id, songs);
   }, []);
 
   const value = useMemo(
@@ -223,8 +265,10 @@ export const LibraryProvider = ({ children }) => {
       toggleLike,
       recentlyPlayed,
       recordRecentlyPlayed,
+      removeFromRecentlyPlayed,
       clearRecentlyPlayed,
       playlists,
+      yearlyPlaylists,
       createPlaylist,
       deletePlaylist,
       renamePlaylist,
@@ -239,8 +283,10 @@ export const LibraryProvider = ({ children }) => {
       toggleLike,
       recentlyPlayed,
       recordRecentlyPlayed,
+      removeFromRecentlyPlayed,
       clearRecentlyPlayed,
       playlists,
+      yearlyPlaylists,
       createPlaylist,
       deletePlaylist,
       renamePlaylist,
