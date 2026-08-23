@@ -115,19 +115,7 @@ const PlaylistCard = memo(({ playlist, onPlayAll }) => {
           <IoPlay className="translate-x-0.5 text-xl" />
         </button>
 
-        {/* Top-left type badge */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
-          {isYearly && (
-            <span className="flex items-center gap-1 rounded-full border border-amber-400/30 bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur-md">
-              <IoSparkles className="text-[9px]" /> {year || "Yearly"}
-            </span>
-          )}
-          {isLiked && (
-            <span className="flex items-center gap-1 rounded-full border border-rose-400/30 bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300 backdrop-blur-md">
-              <IoHeart className="text-[9px]" /> Liked
-            </span>
-          )}
-        </div>
+
       </div>
 
       {/* Playlist Details */}

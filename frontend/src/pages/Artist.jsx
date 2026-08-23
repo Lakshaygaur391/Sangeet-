@@ -67,12 +67,16 @@ const Artist = () => {
 
   const songs = useMemo(() => songList.map(normalizeSong), [songList]);
 
-  // Robust artist matching (exact or substring matching)
+  // Robust artist matching — splits comma/& separated multi-artist strings
   const artistSongs = useMemo(() => {
-    const target = decodedName.toLowerCase();
+    const target = decodedName.toLowerCase().trim();
     return songs.filter((s) => {
-      const art = (s.artist || "").toLowerCase();
-      return art === target || art.includes(target) || target.includes(art);
+      const raw = (s.artist || "").toLowerCase();
+      // Exact match
+      if (raw === target) return true;
+      // Check if target is one of the individual artists in a comma/& separated list
+      const parts = raw.split(/[,&]+/).map((a) => a.trim());
+      return parts.some((part) => part === target || part.includes(target) || target.includes(part));
     });
   }, [songs, decodedName]);
 

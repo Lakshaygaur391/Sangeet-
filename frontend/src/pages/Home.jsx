@@ -263,21 +263,26 @@ const Home = () => {
     for (const s of songs) {
       const raw = (s.artist || "").trim();
       if (!raw || raw === "Unknown Artist") continue;
-      const key = raw.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, {
-          name: raw,
-          id: raw,
-          image: s.thumbnail_url || "",
-          thumbnail_url: s.thumbnail_url || "",
-          songs: [s],
-          songCount: 1,
-          verified: true,
-        });
-      } else {
-        const item = map.get(key);
-        item.songs.push(s);
-        item.songCount = item.songs.length;
+      // Split multi-artist strings (e.g. "A,B & C") into individual names
+      const individualArtists = raw.split(/[,&]+/).map((a) => a.trim()).filter(Boolean);
+      for (const artistName of individualArtists) {
+        if (!artistName || artistName.toLowerCase() === "unknown artist") continue;
+        const key = artistName.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            name: artistName,
+            id: artistName,
+            image: s.thumbnail_url || "",
+            thumbnail_url: s.thumbnail_url || "",
+            songs: [s],
+            songCount: 1,
+            verified: true,
+          });
+        } else {
+          const item = map.get(key);
+          item.songs.push(s);
+          item.songCount = item.songs.length;
+        }
       }
     }
     return Array.from(map.values()).slice(0, 18);
@@ -489,10 +494,6 @@ const Home = () => {
         >
           {trending.slice(0, RAIL_PREVIEW_LIMIT).map((song, i) => (
             <div key={songId(song) || i} className="relative w-40 shrink-0 sm:w-44 md:w-48">
-              {/* Rank badge */}
-              <div className="absolute top-2 left-2 z-10 flex h-6 w-6 items-center justify-center rounded-lg bg-black/80 font-black text-xs text-amber-300 border border-amber-400/30 backdrop-blur-md shadow-md">
-                {i + 1}
-              </div>
               <SongCard
                 song={song}
                 queue={trending}
