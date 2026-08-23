@@ -16,7 +16,13 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  })
+);
 app.use(express.json());
 app.use("/audio", express.static(path.join(__dirname, "audio")));
 
