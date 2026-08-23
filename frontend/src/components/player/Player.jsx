@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePlayer, usePlaybackProgress } from "../../context/PlayerContext";
 import {
   IoPlaySkipBack,
   IoPlaySkipForward,
@@ -12,11 +13,9 @@ import {
   IoExpand,
 } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
-import { usePlayer } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
 import { formatTime } from "../../lib/media";
 import useMediaSession from "../../hooks/useMediaSession";
-
 const Player = () => {
   const {
     currentSong,
@@ -33,13 +32,16 @@ const Player = () => {
     setVolume,
     setIsQueueOpen,
     setIsNowPlayingOpen,
-    currentTime,
-    setCurrentTime,
-    duration,
-    setDuration,
     registerEngine,
-    seekTo,
   } = usePlayer();
+
+  const {
+    currentTime,
+    duration,
+    setCurrentTime,
+    setDuration,
+    seekTo,
+  } = usePlaybackProgress();
   const { isLiked, toggleLike } = useLibrary();
 
   const audioRef = useRef(null);
@@ -72,13 +74,19 @@ const Player = () => {
         }
       },
       play: () => {
-        audioRef.current?.play().catch(() => {});
+        audioRef.current?.play().catch(() => { });
       },
       pause: () => {
         audioRef.current?.pause();
       },
     });
   }, [registerEngine]);
+
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(0);
+  }, [currentSong?.audio_url]);
+
 
   // Synchronize Play / Pause state with HTML5 Audio
   useEffect(() => {
@@ -124,7 +132,7 @@ const Player = () => {
         }
         restoredTimeRef.current = false;
       }
-      if (isPlaying) audioRef.current.play().catch(() => {});
+      if (isPlaying) audioRef.current.play().catch(() => { });
     }
   };
 
@@ -208,9 +216,8 @@ const Player = () => {
           type="button"
           aria-label={isLiked(currentSong) ? "Unlike song" : "Like song"}
           onClick={() => toggleLike(currentSong)}
-          className={`shrink-0 text-lg transition-all duration-200 hover:scale-110 ${
-            isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-amber-300"
-          }`}
+          className={`shrink-0 text-lg transition-all duration-200 hover:scale-110 ${isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-amber-300"
+            }`}
         >
           {isLiked(currentSong) ? <IoMdHeart /> : <IoMdHeartEmpty />}
         </button>
@@ -223,9 +230,8 @@ const Player = () => {
               aria-label="Toggle shuffle"
               aria-pressed={shuffle}
               onClick={() => setShuffle((v) => !v)}
-              className={`rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${
-                shuffle ? "text-amber-300" : "text-white/45 hover:text-white"
-              }`}
+              className={`rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${shuffle ? "text-amber-300" : "text-white/45 hover:text-white"
+                }`}
             >
               <IoShuffle className="text-[1.1rem]" />
             </button>
@@ -258,9 +264,8 @@ const Player = () => {
               aria-label={`Repeat: ${repeatMode}`}
               aria-pressed={repeatMode !== "off"}
               onClick={cycleRepeat}
-              className={`relative rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${
-                repeatMode !== "off" ? "text-amber-300" : "text-white/45 hover:text-white"
-              }`}
+              className={`relative rounded-full p-2 transition-all duration-200 hover:bg-white/8 ${repeatMode !== "off" ? "text-amber-300" : "text-white/45 hover:text-white"
+                }`}
             >
               <IoRepeat className="text-[1.1rem]" />
               {repeatMode === "one" && (

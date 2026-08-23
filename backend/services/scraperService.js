@@ -94,6 +94,62 @@ function extractCleanArtist($, mainContent) {
   return artist || "Various Artists";
 }
 
+/**
+ * Extract album name and release year from a song detail page.
+ */
+function extractAlbumAndYear($, mainContent) {
+  let album = "";
+  let year = "";
+
+  // Strategy 1: <td> label/value pairs in table rows
+  mainContent.find("tr").each((_, row) => {
+    const cells = $(row).find("td");
+    if (cells.length >= 2) {
+      const label = sanitizeText($(cells[0]).text());
+      const value = sanitizeText($(cells[1]).text());
+      if (!album && /^Album$/i.test(label) && value && value.length < 200) {
+        album = value;
+      }
+      if (!year && /^Year|^Release\s*Year/i.test(label) && value) {
+        const m = value.match(/(\d{4})/);
+        if (m) year = m[1];
+      }
+    }
+  });
+
+  // Strategy 2: li/p/div/span text matching "Album:" or "Year:"
+  if (!album || !year) {
+    mainContent.find("li, p, div, span").each((_, el) => {
+      const raw = $(el).clone().find("*").remove().end().text();
+      const cleaned = sanitizeText(raw);
+      if (!album) {
+        const m = cleaned.match(/^Album\s*[:\-]?\s*(.+)$/i);
+        if (m && m[1] && m[1].length < 200) album = m[1].trim();
+      }
+      if (!year) {
+        const m = cleaned.match(/^(?:Year|Release\s*Year)\s*[:\-]?\s*(\d{4})/i);
+        if (m) year = m[1];
+      }
+    });
+  }
+
+  // Strategy 3: Extract year from audio URL path (e.g. /uploads/2024/03/...)
+  if (!year) {
+    const audioEl = $("[data-year]").first();
+    const dataYear = audioEl.attr("data-year");
+    if (dataYear && /^\d{4}$/.test(dataYear.trim())) year = dataYear.trim();
+  }
+
+  // Strategy 4: meta description year
+  if (!year) {
+    const metaDesc = $("meta[name='description']").attr("content") || "";
+    const m = metaDesc.match(/(\d{4})/);
+    if (m) year = m[1];
+  }
+
+  return { album: sanitizeText(album), year: sanitizeText(year) };
+}
+
 function encodeAudioUrl(rawUrl) {
   if (!rawUrl) return "";
   try {
@@ -137,7 +193,10 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
     // 2. Artist
     const artist = extractCleanArtist($, mainContent);
 
-    // 3. Language
+    // 3. Album & Year
+    const { album, year } = extractAlbumAndYear($, mainContent);
+
+    // 4. Language
     let language = defaultLanguage;
     const breadcrumbLink = $(".breadcrumb a[href*='/category/']").first();
     if (breadcrumbLink.length) {
@@ -145,7 +204,7 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
       if (rawLang) language = rawLang.charAt(0).toUpperCase() + rawLang.slice(1);
     }
 
-    // 4. Thumbnail
+    // 5. Thumbnail
     let thumbnailUrl = "";
     mainContent.find("img").each((_, el) => {
       const src = $(el).attr("data-src") || $(el).attr("data-original") || $(el).attr("src") || "";
@@ -156,7 +215,7 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
       }
     });
 
-    // 5. Audio URL from data-file attributes
+    // 6. Audio URL from data-file attributes
     let audioUrl = "";
     const candidates = [];
     $("[data-file]").each((_, el) => {
@@ -191,6 +250,8 @@ export async function extractSongDetails(songPageUrl, defaultLanguage = "Hindi")
     return {
       title,
       artist,
+      album,
+      year,
       language,
       audio_url: encodeAudioUrl(audioUrl),
       thumbnail_url: thumbnailUrl ||
@@ -380,6 +441,8 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
           $set: {
             title: song.title,
             artist: song.artist,
+            album: song.album || "",
+            year: song.year || "",
             language: song.language,
             audio_url: song.audio_url,
             thumbnail_url: song.thumbnail_url,
