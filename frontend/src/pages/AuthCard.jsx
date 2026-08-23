@@ -50,7 +50,6 @@ const AuthCard = ({ initialView = "signin" }) => {
   // Screenshot login button color
   // =====================================================
   const accentColor = "#FFB900";
-  const accentHover = "#E6A600";
 
   // =====================================================
   // VIEW CHANGE

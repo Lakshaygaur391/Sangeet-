@@ -58,7 +58,7 @@ function detectSongYear(song) {
   const fnMatch = thumb.match(/[-_](?:[A-Za-z]+[-_])?(20\d{2})[-_]/);
   if (fnMatch) return parseInt(fnMatch[1], 10);
 
-  const titleMatch = title.match(/[\(\[\s](20\d{2})[\)\]\s]/);
+  const titleMatch = title.match(/[([ \t](20\d{2})[)\] \t]/);
   if (titleMatch) return parseInt(titleMatch[1], 10);
 
   const anyMatch = thumb.match(/(20\d{2})/);

@@ -56,7 +56,7 @@ const HOME_FILTER_TABS = [
 
 const Home = () => {
   const navigate = useNavigate();
-  const { playSong, currentSong, isPlaying, setIsPlaying } = usePlayer();
+  const { playSong } = usePlayer();
   const { recentlyPlayed, yearlyPlaylists } = useLibrary();
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();

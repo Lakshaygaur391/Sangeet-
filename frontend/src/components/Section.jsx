@@ -18,7 +18,6 @@ const Section = ({
   status = "ready",
   error,
   onRetry,
-  onPlayAll,
   seeAllHref,
   children,
   emptyTitle = "Nothing here yet",
@@ -28,7 +27,6 @@ const Section = ({
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Drag-to-scroll state
   const isDownRef = useRef(false);
@@ -136,11 +134,7 @@ const Section = ({
   return (
     <section
       id={id}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        handleMouseUpOrLeave();
-      }}
+      onMouseLeave={handleMouseUpOrLeave}
       className="group/section relative scroll-mt-24 rounded-3xl border border-white/[0.06] bg-[#0f0f10]/80 p-4 shadow-xl shadow-black/25 md:p-5"
     >
       <div className="mb-3 flex items-end justify-between gap-3 px-1">

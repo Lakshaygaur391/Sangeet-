@@ -144,13 +144,13 @@ const MobileNav = () => {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0c0c0e]/98 backdrop-blur-2xl md:hidden shadow-[0_-10px_30px_rgba(0,0,0,0.6)]"
       >
         <div className="grid grid-cols-5">
-          {NAV_ITEMS.map(({ to, end, label, Outline, Filled, requireAuth }) => (
+          {NAV_ITEMS.map((item) => (
             <NavLink
-              key={to}
-              to={to}
-              end={end}
+              key={item.to}
+              to={item.to}
+              end={item.end}
               onClick={(e) => {
-                if (requireAuth && !isAuthenticated) {
+                if (item.requireAuth && !isAuthenticated) {
                   e.preventDefault();
                   openAuthPrompt("library");
                 }
@@ -161,15 +161,18 @@ const MobileNav = () => {
                 }`
               }
             >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="absolute top-0 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(234,179,74,0.8)]" />
-                  )}
-                  <span className="text-xl">{isActive ? <Filled /> : <Outline />}</span>
-                  <span>{label}</span>
-                </>
-              )}
+              {({ isActive }) => {
+                const Icon = isActive ? item.Filled : item.Outline;
+                return (
+                  <>
+                    {isActive && (
+                      <span className="absolute top-0 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(234,179,74,0.8)]" />
+                    )}
+                    <span className="text-xl"><Icon /></span>
+                    <span>{item.label}</span>
+                  </>
+                );
+              }}
             </NavLink>
           ))}
 

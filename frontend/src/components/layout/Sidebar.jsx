@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   IoHomeOutline,
   IoHome,
@@ -12,17 +12,11 @@ import {
   IoHeart,
   IoTimeOutline,
   IoPeopleOutline,
-  IoSparkles,
   IoMusicalNotes,
-  IoPlay,
-  IoPause,
-  IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 import { useLibrary } from "../../context/LibraryContext";
 import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
-import { usePlayer } from "../../context/PlayerContext";
-import { songId } from "../../lib/media";
 
 const NavItem = ({
   to,
@@ -53,48 +47,49 @@ const NavItem = ({
       }`
     }
   >
-    {({ isActive }) => (
-      <>
-        <div className="flex items-center gap-3 min-w-0">
-          <span
-            className={`text-lg transition-transform duration-200 group-hover:scale-110 ${
-              isActive ? "text-amber-400" : "text-white/50 group-hover:text-white"
-            }`}
-          >
-            {isActive ? <IconFilled /> : <IconOutline />}
-          </span>
-          <span className="truncate">{label}</span>
-        </div>
+    {({ isActive }) => {
+      const Icon = isActive ? IconFilled : IconOutline;
+      return (
+        <>
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className={`text-lg transition-transform duration-200 group-hover:scale-110 ${
+                isActive ? "text-amber-400" : "text-white/50 group-hover:text-white"
+              }`}
+            >
+              <Icon />
+            </span>
+            <span className="truncate">{label}</span>
+          </div>
 
-        {badge !== undefined && badge !== null && (
-          <span
-            className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors ${
-              badgeColor === "rose"
-                ? "border border-rose-500/20 bg-rose-500/10 text-rose-300"
-                : isActive
-                ? "border border-amber-400/30 bg-amber-400/20 text-amber-300"
-                : "border border-white/10 bg-white/[0.06] text-white/45 group-hover:text-white/80"
-            }`}
-          >
-            {badge}
-          </span>
-        )}
+          {badge !== undefined && badge !== null && (
+            <span
+              className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors ${
+                badgeColor === "rose"
+                  ? "border border-rose-500/20 bg-rose-500/10 text-rose-300"
+                  : isActive
+                  ? "border border-amber-400/30 bg-amber-400/20 text-amber-300"
+                  : "border border-white/10 bg-white/[0.06] text-white/45 group-hover:text-white/80"
+              }`}
+            >
+              {badge}
+            </span>
+          )}
 
-        {/* Active Pill Indicator */}
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-amber-400 shadow-[0_0_8px_rgba(234,179,74,0.8)]" />
-        )}
-      </>
-    )}
+          {/* Active Pill Indicator */}
+          {isActive && (
+            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-amber-400 shadow-[0_0_8px_rgba(234,179,74,0.8)]" />
+          )}
+        </>
+      );
+    }}
   </NavLink>
 );
 
 const Sidebar = ({ onCreatePlaylist }) => {
-  const { likedSongs, recentlyPlayed, playlists, yearlyPlaylists } = useLibrary();
-  const { isAuthenticated, user } = useAuth();
+  const { likedSongs, recentlyPlayed, playlists } = useLibrary();
+  const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
-  const { currentSong, isPlaying, setIsPlaying } = usePlayer();
-  const navigate = useNavigate();
 
   const onAuthRequired = () => openAuthPrompt("library");
 

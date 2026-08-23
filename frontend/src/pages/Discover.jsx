@@ -4,7 +4,6 @@ import SongCard from "../components/song/SongCard";
 import MoodCard from "../components/mood/MoodCard";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
 import LoadMoreButton from "../components/ui/LoadMoreButton";
-import { usePlayer } from "../context/PlayerContext";
 import songService from "../services/songService";
 import { normalizeSong } from "../lib/media";
 

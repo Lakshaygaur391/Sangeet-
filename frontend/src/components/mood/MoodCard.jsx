@@ -7,7 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { songId } from "../../lib/media";
 
-const MoodCard = memo(({ mood, songs, onAddToPlaylist }) => {
+const MoodCard = memo(({ mood, songs }) => {
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { isAuthenticated } = useAuth();

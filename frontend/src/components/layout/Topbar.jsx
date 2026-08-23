@@ -79,7 +79,7 @@ const Topbar = () => {
               <IoClose className="text-sm" />
             </button>
           ) : (
-            <span className="rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/35">
+            <span className="hidden lg:inline-block shrink-0 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/35">
               Ctrl K
             </span>
           )}

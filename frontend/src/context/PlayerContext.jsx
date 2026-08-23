@@ -37,7 +37,7 @@ function loadStorage(key, fallback) {
 function saveStorage(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
-  } catch (err) {
+  } catch {
     // Ignore storage quota errors
   }
 }

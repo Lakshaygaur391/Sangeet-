@@ -265,13 +265,13 @@ const NowPlaying = () => {
           </div>
 
           {/* Transport Controls (Play/Pause/Skip/Shuffle) */}
-          <div className="mt-3 flex items-center justify-center gap-4 sm:gap-6 text-xl sm:text-2xl">
+          <div className="mt-3 flex items-center justify-center gap-3 sm:gap-6 text-xl sm:text-2xl">
             <button
               type="button"
               aria-label="Toggle shuffle"
               aria-pressed={shuffle}
               onClick={() => setShuffle((v) => !v)}
-              className={`rounded-full p-2.5 transition hover:bg-white/10 ${
+              className={`flex h-11 w-11 shrink-0 aspect-square items-center justify-center rounded-full transition hover:bg-white/10 ${
                 shuffle ? "text-amber-300" : "text-white/40 hover:text-white"
               }`}
               title="Shuffle"
@@ -283,7 +283,7 @@ const NowPlaying = () => {
               type="button"
               aria-label="Previous track"
               onClick={playPrevious}
-              className="rounded-full p-2.5 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
+              className="flex h-11 w-11 shrink-0 aspect-square items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
               title="Previous"
             >
               <IoPlaySkipBack className="text-xl sm:text-2xl" />
@@ -293,7 +293,7 @@ const NowPlaying = () => {
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
               onClick={() => setIsPlaying(!isPlaying)}
-              className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-[0_8px_30px_rgba(234,179,74,0.4)] transition-all hover:scale-105 hover:shadow-[0_12px_40px_rgba(234,179,74,0.55)] active:scale-95"
+              className="relative flex h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 aspect-square sm:h-16 sm:w-16 sm:min-h-[64px] sm:min-w-[64px] sm:max-h-[64px] sm:max-w-[64px] items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-black shadow-[0_8px_30px_rgba(234,179,74,0.45)] transition-all duration-200 hover:scale-105 hover:shadow-[0_12px_40px_rgba(234,179,74,0.6)] active:scale-95"
               title="Play / Pause (Space)"
             >
               {isPlaying ? (
@@ -307,7 +307,7 @@ const NowPlaying = () => {
               type="button"
               aria-label="Next track"
               onClick={playNext}
-              className="rounded-full p-2.5 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
+              className="flex h-11 w-11 shrink-0 aspect-square items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
               title="Next"
             >
               <IoPlaySkipForward className="text-xl sm:text-2xl" />
@@ -318,14 +318,14 @@ const NowPlaying = () => {
               aria-label={`Repeat: ${repeatMode}`}
               aria-pressed={repeatMode !== "off"}
               onClick={cycleRepeat}
-              className={`relative rounded-full p-2.5 transition hover:bg-white/10 ${
+              className={`relative flex h-11 w-11 shrink-0 aspect-square items-center justify-center rounded-full transition hover:bg-white/10 ${
                 repeatMode !== "off" ? "text-amber-300" : "text-white/40 hover:text-white"
               }`}
               title="Repeat"
             >
               <IoRepeat className="text-lg sm:text-xl" />
               {repeatMode === "one" && (
-                <span className="absolute -top-0.5 right-0 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black leading-none py-0.5">
+                <span className="absolute top-1 right-1 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black leading-none py-0.5">
                   1
                 </span>
               )}

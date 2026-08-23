@@ -19,7 +19,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import songService from "../services/songService";
-import { normalizeSong, avatarFor, formatTime } from "../lib/media";
+import { normalizeSong, avatarFor } from "../lib/media";
 
 const Artist = () => {
   const { name } = useParams();

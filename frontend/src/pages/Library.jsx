@@ -11,6 +11,8 @@ import {
   IoSearchOutline,
   IoClose,
   IoCalendarOutline,
+  IoPlay,
+  IoShuffle,
 } from "react-icons/io5";
 import SongRow from "../components/song/SongRow";
 import ArtistCard from "../components/artist/ArtistCard";
@@ -19,7 +21,6 @@ import { EmptyState } from "../components/ui/StatePanels";
 import { useLibrary } from "../context/LibraryContext";
 import { usePlayer } from "../context/PlayerContext";
 import artistService from "../services/artistService";
-import { avatarFor } from "../lib/media";
 
 const MAIN_TABS = [
   { key: "all", label: "All" },
