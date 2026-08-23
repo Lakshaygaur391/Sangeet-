@@ -212,31 +212,21 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search bar */}
-      <div className="relative">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#141415] px-4 py-3.5 shadow-lg shadow-black/20 transition-all duration-200 focus-within:border-amber-400/40 focus-within:shadow-amber-400/10 focus-within:ring-1 focus-within:ring-amber-400/20">
-          <IoIosSearch className="shrink-0 text-xl text-white/45" />
-          <input
-            autoFocus
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search songs, artists, languages…"
-            aria-label="Search"
-            className="min-w-0 flex-1 bg-transparent text-white placeholder:text-white/35 focus:outline-none"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setSearchQuery("")}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/15 hover:text-white"
-            >
-              <IoClose className="text-sm" />
-            </button>
-          )}
+      {/* Search Header indicator */}
+      {hasQuery && (
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+          <p className="text-sm text-white/50">
+            Results for <span className="font-semibold text-amber-300">"{debouncedQuery}"</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="text-xs font-semibold text-white/40 hover:text-white transition-colors"
+          >
+            Clear Search
+          </button>
         </div>
-      </div>
+      )}
 
       {!hasQuery && (
         <div>

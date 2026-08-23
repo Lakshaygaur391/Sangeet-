@@ -85,6 +85,9 @@ const Player = () => {
     }
   }, [isPlaying, currentSong?.audio_url]);
 
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+
   // Synchronize Volume with HTML5 Audio
   useEffect(() => {
     if (audioRef.current) {
@@ -94,14 +97,19 @@ const Player = () => {
 
   // HTML5 Audio Event Handlers
   const handleTimeUpdate = () => {
-    if (audioRef.current) setCurrentTime(audioRef.current.currentTime || 0);
+    if (audioRef.current && !isScrubbing) {
+      setCurrentTime(audioRef.current.currentTime || 0);
+    }
   };
 
   const restoredTimeRef = useRef(true);
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
-      setDuration(audioRef.current.duration || 0);
+      const dur = audioRef.current.duration;
+      if (Number.isFinite(dur) && dur > 0) {
+        setDuration(dur);
+      }
       audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
       if (restoredTimeRef.current && currentTime > 0) {
         try {
@@ -115,7 +123,27 @@ const Player = () => {
     }
   };
 
-  const handleSeek = (e) => seekTo(Number(e.target.value));
+  const handleSliderStart = (e) => {
+    setIsScrubbing(true);
+    const val = Number(e.target.value);
+    setScrubTime(val);
+  };
+
+  const handleSliderChange = (e) => {
+    const val = Number(e.target.value);
+    setScrubTime(val);
+  };
+
+  const handleSliderEnd = (e) => {
+    const val = Number(e.target.value);
+    setIsScrubbing(false);
+    seekTo(val);
+  };
+
+  const skipSeconds = (delta) => {
+    const target = Math.max(0, Math.min(duration || 0, currentTime + delta));
+    seekTo(target);
+  };
 
   const toggleMute = () => {
     if (volume > 0) {
@@ -128,7 +156,8 @@ const Player = () => {
 
   if (!currentSong) return null;
 
-  const progressPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const displayTime = isScrubbing ? scrubTime : currentTime;
+  const progressPct = duration ? Math.min(100, (displayTime / duration) * 100) : 0;
 
   return (
     <>
@@ -247,17 +276,22 @@ const Player = () => {
           {/* Progress bar */}
           <div className="flex w-full max-w-lg items-center gap-2.5">
             <span className="w-9 text-right text-[11px] tabular-nums text-white/35">
-              {formatTime(currentTime)}
+              {formatTime(displayTime)}
             </span>
             <div className="relative flex-1 flex items-center">
               <input
                 type="range"
                 min="0"
-                max={duration || 0}
-                value={Math.min(currentTime, duration || 0)}
-                onChange={handleSeek}
+                max={duration || 100}
+                step="0.1"
+                value={Math.min(displayTime, duration || 100)}
+                onMouseDown={handleSliderStart}
+                onTouchStart={handleSliderStart}
+                onChange={handleSliderChange}
+                onMouseUp={handleSliderEnd}
+                onTouchEnd={handleSliderEnd}
                 aria-label="Seek"
-                className="h-1 w-full cursor-pointer"
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-amber-400"
                 style={{
                   background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
                 }}

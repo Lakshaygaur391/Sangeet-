@@ -289,17 +289,22 @@ async function buildHomeFeed() {
     artistsRaw,
     ...regionalArrays
   ] = await Promise.all([
-    // Featured: one recent song with thumbnail
+    // Featured: one standout recent Hindi track
     Song.findOne({
       audio_url: { $exists: true, $ne: "" },
       thumbnail_url: { $exists: true, $ne: "" },
-      year: { $in: ["2026", "2025"] },
+      language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] },
+      year: { $in: ["2026", "2025", "2024"] },
     })
       .select(SONG_FIELDS)
       .lean(),
 
-    // Fresh: 50 newest
-    fetchSongs({ sort: { year: -1 }, limit: 50 }),
+    // Fresh: Latest Hindi & Bollywood songs sorted latest year first
+    fetchSongs({
+      match: { language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] } },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
 
     // Bollywood / Hindi
     fetchSongs({
@@ -328,8 +333,12 @@ async function buildHomeFeed() {
       limit: 50,
     }),
 
-    // Trending: 50 most recently inserted
-    fetchSongs({ sort: { _id: -1 }, limit: 50 }),
+    // Trending: Mixup of all languages sorted latest year first
+    fetchSongs({
+      match: { audio_url: { $exists: true, $ne: "" }, year: { $exists: true, $ne: "" } },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
 
     // Total count — just a number, no documents loaded
     Song.countDocuments({ audio_url: { $exists: true, $ne: "" } }),

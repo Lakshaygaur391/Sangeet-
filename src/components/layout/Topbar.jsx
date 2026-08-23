@@ -46,7 +46,7 @@ const Topbar = () => {
       </Link>
 
       {/* Global Quick Search Bar (Spotify / Apple Music style) */}
-      <div className="mx-auto hidden max-w-md flex-1 md:block">
+      <div className="mx-auto flex max-w-xs sm:max-w-sm md:max-w-md flex-1">
         <div
           onClick={handleSearchClick}
           className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 transition-all duration-200 cursor-pointer ${

@@ -106,8 +106,31 @@ const NowPlaying = () => {
   };
 
   if (!currentSong) return null;
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
 
-  const progressPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const displayTime = isScrubbing ? scrubTime : currentTime;
+  const progressPct = duration ? Math.min(100, (displayTime / duration) * 100) : 0;
+
+  const handleSliderStart = (e) => {
+    setIsScrubbing(true);
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderChange = (e) => {
+    setScrubTime(Number(e.target.value));
+  };
+
+  const handleSliderEnd = (e) => {
+    const val = Number(e.target.value);
+    setIsScrubbing(false);
+    seekTo(val);
+  };
+
+  const skipSeconds = (delta) => {
+    const target = Math.max(0, Math.min(duration || 0, currentTime + delta));
+    seekTo(target);
+  };
 
   return (
     <div
@@ -148,55 +171,52 @@ const NowPlaying = () => {
 
         <div className="text-center">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-white/40">Playing From</p>
-          <p className="text-xs font-bold text-amber-300/90 truncate max-w-[200px] sm:max-w-[300px]">
-            {currentSong.album || currentSong.language || "Sangeet Stream"}
+          <p className="text-xs font-semibold text-amber-300/90 truncate max-w-[200px] sm:max-w-[300px]">
+            {currentSong.album || (currentSong.language ? `${currentSong.language} Music` : "Sangeet Library")}
           </p>
         </div>
 
-        {/* Volume slider (desktop header) */}
-        <div className="hidden items-center gap-2 md:flex">
-          <button
-            type="button"
-            onClick={toggleMute}
-            className="text-white/50 hover:text-white transition p-1"
-          >
-            {volume === 0 ? <IoVolumeMute className="text-lg text-rose-400" /> : <IoVolumeHigh className="text-lg" />}
-          </button>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            aria-label="Volume"
-            className="h-1 w-20 cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, #eab34a ${volume}%, rgba(255,255,255,0.12) ${volume}%)`,
-            }}
-          />
+        <div className="flex items-center gap-2">
+          {/* Tab Switcher on larger screens */}
+          <div className="flex rounded-full border border-white/10 bg-white/5 p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setActiveTab("queue")}
+              className={`rounded-full px-3 py-1 transition ${
+                activeTab === "queue" ? "bg-amber-400 text-black font-bold" : "text-white/60 hover:text-white"
+              }`}
+            >
+              Queue ({songList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("related")}
+              className={`rounded-full px-3 py-1 transition ${
+                activeTab === "related" ? "bg-amber-400 text-black font-bold" : "text-white/60 hover:text-white"
+              }`}
+            >
+              Related
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── Main Viewport Content: Left Player, Right Queue & Mix ── */}
-      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-4 md:px-8 lg:grid lg:grid-cols-[minmax(0,1.1fr)_400px] lg:gap-12 lg:items-center lg:py-6">
+      {/* ── Main Body: 2-Column Desktop / Stacked Mobile ── */}
+      <main className="relative z-10 flex flex-1 flex-col lg:flex-row items-center justify-center gap-8 px-6 py-4 md:px-12 lg:px-16 overflow-hidden">
         
-        {/* ── LEFT COLUMN: Artwork + Metadata + Controls (Always in view) ── */}
-        <div className="mx-auto flex w-full max-w-md flex-col justify-center lg:mx-0 lg:max-w-none">
-          {/* Album Artwork Card */}
-          <div className="relative mx-auto mb-5 w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] lg:max-w-[380px]">
-            <div className="relative aspect-square overflow-hidden rounded-3xl border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
-              <img
-                src={currentSong.thumbnail_url}
-                alt=""
-                className="h-full w-full object-cover transform-gpu transition-transform duration-500 hover:scale-105"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/10" />
-            </div>
-
-            {/* Glowing Aura below album */}
+        {/* Left Column: Huge High-Res Artwork & Transport Controls */}
+        <div className="flex w-full max-w-md flex-col justify-center shrink-0">
+          
+          {/* Album Artwork with Ambient Shadow */}
+          <div className="relative mx-auto mb-6 aspect-square w-full max-w-[300px] sm:max-w-[340px] lg:max-w-[380px]">
+            <img
+              src={currentSong.thumbnail_url}
+              alt={currentSong.title}
+              className="h-full w-full rounded-3xl object-cover shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10"
+            />
             {isPlaying && (
               <div
-                className="pointer-events-none absolute -inset-4 -z-10 rounded-full opacity-40 blur-2xl transition-opacity"
+                className="absolute -inset-2 rounded-[32px] -z-10 blur-xl opacity-40 animate-pulse pointer-events-none"
                 style={{
                   background: "radial-gradient(circle, rgba(234,179,74,0.3) 0%, transparent 70%)",
                 }}
@@ -216,18 +236,6 @@ const NowPlaying = () => {
               <p className="truncate text-xs font-semibold text-white/55 sm:text-sm mt-0.5" title={currentSong.artist}>
                 {currentSong.artist}
               </p>
-              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                {currentSong.language && (
-                  <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-300/80">
-                    {currentSong.language}
-                  </span>
-                )}
-                {currentSong.album && (
-                  <span className="truncate text-[11px] text-white/35 max-w-[200px]">
-                    {currentSong.album}
-                  </span>
-                )}
-              </div>
             </div>
 
             <button
@@ -248,30 +256,35 @@ const NowPlaying = () => {
               <input
                 type="range"
                 min="0"
-                max={duration || 0}
-                value={Math.min(currentTime, duration || 0)}
-                onChange={(e) => seekTo(Number(e.target.value))}
+                max={duration || 100}
+                step="0.1"
+                value={Math.min(displayTime, duration || 100)}
+                onMouseDown={handleSliderStart}
+                onTouchStart={handleSliderStart}
+                onChange={handleSliderChange}
+                onMouseUp={handleSliderEnd}
+                onTouchEnd={handleSliderEnd}
                 aria-label="Seek track"
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent"
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-amber-400"
                 style={{
                   background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
                 }}
               />
             </div>
             <div className="flex justify-between text-[11px] font-medium tabular-nums text-white/40 px-0.5">
-              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(displayTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
           </div>
 
-          {/* Transport Controls (Play/Pause/Skip/Shuffle) */}
-          <div className="mt-3 flex items-center justify-center gap-4 sm:gap-6 text-xl sm:text-2xl">
+          {/* Transport Controls (Play/Pause/Skip/Shuffle/Seek Buttons) */}
+          <div className="mt-3 flex items-center justify-center gap-3 sm:gap-5 text-xl sm:text-2xl">
             <button
               type="button"
               aria-label="Toggle shuffle"
               aria-pressed={shuffle}
               onClick={() => setShuffle((v) => !v)}
-              className={`rounded-full p-2.5 transition hover:bg-white/10 ${
+              className={`rounded-full p-2 transition hover:bg-white/10 ${
                 shuffle ? "text-amber-300" : "text-white/40 hover:text-white"
               }`}
               title="Shuffle"
@@ -283,10 +296,21 @@ const NowPlaying = () => {
               type="button"
               aria-label="Previous track"
               onClick={playPrevious}
-              className="rounded-full p-2.5 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
+              className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
               title="Previous"
             >
               <IoPlaySkipBack className="text-xl sm:text-2xl" />
+            </button>
+
+            {/* Quick -10s Rewind */}
+            <button
+              type="button"
+              aria-label="Rewind 10 seconds"
+              onClick={() => skipSeconds(-10)}
+              className="rounded-full p-1.5 text-xs font-bold text-white/50 border border-white/10 transition hover:bg-white/10 hover:text-white active:scale-90"
+              title="Rewind 10s"
+            >
+              -10s
             </button>
 
             <button
@@ -303,11 +327,22 @@ const NowPlaying = () => {
               )}
             </button>
 
+            {/* Quick +10s Forward */}
+            <button
+              type="button"
+              aria-label="Forward 10 seconds"
+              onClick={() => skipSeconds(10)}
+              className="rounded-full p-1.5 text-xs font-bold text-white/50 border border-white/10 transition hover:bg-white/10 hover:text-white active:scale-90"
+              title="Forward 10s"
+            >
+              +10s
+            </button>
+
             <button
               type="button"
               aria-label="Next track"
               onClick={playNext}
-              className="rounded-full p-2.5 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
+              className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white active:scale-90"
               title="Next"
             >
               <IoPlaySkipForward className="text-xl sm:text-2xl" />
@@ -318,14 +353,14 @@ const NowPlaying = () => {
               aria-label={`Repeat: ${repeatMode}`}
               aria-pressed={repeatMode !== "off"}
               onClick={cycleRepeat}
-              className={`relative rounded-full p-2.5 transition hover:bg-white/10 ${
+              className={`relative rounded-full p-2 transition hover:bg-white/10 ${
                 repeatMode !== "off" ? "text-amber-300" : "text-white/40 hover:text-white"
               }`}
-              title="Repeat"
+              title={`Repeat: ${repeatMode}`}
             >
               <IoRepeat className="text-lg sm:text-xl" />
               {repeatMode === "one" && (
-                <span className="absolute -top-0.5 right-0 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black leading-none py-0.5">
+                <span className="absolute 1 top-0.5 right-0.5 rounded-full bg-amber-400 px-1 text-[8px] font-bold text-black leading-none py-0.5">
                   1
                 </span>
               )}

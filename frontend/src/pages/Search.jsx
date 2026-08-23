@@ -247,39 +247,26 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search Input Bar */}
-      <div className="relative">
-        <div className="flex items-center rounded-full border border-white/10 bg-[#1c1c1e] px-4 py-3 shadow-[0_0_0_2px_rgba(255,255,255,0.06)] transition-all focus-within:border-amber-500/60 focus-within:shadow-[0_0_0_2px_rgba(234,179,74,0.35)]">
-          <IoIosSearch className="mr-2 text-xl text-white/60 shrink-0" />
-          <input
-            autoFocus
-            type="text"
-            value={inputQuery}
-            onChange={(e) => setInputQuery(e.target.value)}
-            placeholder="Search songs, artists, languages…"
-            aria-label="Search"
-            className="w-full bg-transparent text-white placeholder:text-white/40 focus:outline-none text-base"
-          />
-          {isLoading && (
-            <AiOutlineLoading3Quarters className="animate-spin mr-2 text-amber-400 text-base shrink-0" />
-          )}
-          {inputQuery && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => {
-                setInputQuery("");
-                setDebouncedQuery("");
-                setSearchResults([]);
-                setStatus("idle");
-              }}
-              className="text-white/50 hover:text-white transition p-1"
-            >
-              <IoClose className="text-xl" />
-            </button>
-          )}
+      {/* Search Header indicator */}
+      {hasQuery && (
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+          <p className="text-sm text-white/50">
+            Results for <span className="font-semibold text-amber-300">"{activeQuery || inputQuery}"</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setInputQuery("");
+              setActiveQuery("");
+              setSearchResults([]);
+              setSearchParams({}, { replace: true });
+            }}
+            className="text-xs font-semibold text-white/40 hover:text-white transition-colors"
+          >
+            Clear Search
+          </button>
         </div>
-      </div>
+      )}
 
       {/* When no query is typed: Recent searches & Browse Languages */}
       {!hasQuery && (

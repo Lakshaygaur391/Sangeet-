@@ -128,9 +128,36 @@ const Home = () => {
     [languageMap]
   );
 
-  const featured = songs[0];
-  const fresh = songs;
-  const trending = useMemo(() => [...songs].reverse(), [songs]);
+  const yearNum = (s) => {
+    const y = parseInt(s?.year || "", 10);
+    return isNaN(y) ? 0 : y;
+  };
+
+  // Fresh on Sangeet: Latest Hindi / Bollywood songs year-wise first
+  const fresh = useMemo(() => {
+    const hindiSongs = songs.filter((s) => {
+      const l = (s.language || "").toLowerCase();
+      return l === "hindi" || l === "bollywood";
+    });
+    return (hindiSongs.length > 0 ? hindiSongs : songs).sort((a, b) => yearNum(b) - yearNum(a));
+  }, [songs]);
+
+  // Trending in India: Mixup of all languages sorted latest year first
+  const trending = useMemo(() => {
+    return [...songs].sort((a, b) => {
+      const diff = yearNum(b) - yearNum(a);
+      if (diff !== 0) return diff;
+      return (b.title || "").localeCompare(a.title || "");
+    });
+  }, [songs]);
+
+  const featured = useMemo(() => {
+    return (
+      fresh.find((s) => s.thumbnail_url && !s.thumbnail_url.includes("ui-avatars")) ||
+      songs[0] ||
+      null
+    );
+  }, [fresh, songs]);
 
   // Regional language spotlights list
   const regions = useMemo(() => {

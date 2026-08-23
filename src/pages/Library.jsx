@@ -64,9 +64,21 @@ const Library = () => {
     };
   }, []);
 
+  const validRecentlyPlayed = useMemo(() => {
+    return Array.isArray(recentlyPlayed)
+      ? recentlyPlayed.filter((s) => s && typeof s === "object")
+      : [];
+  }, [recentlyPlayed]);
+
+  const validLikedSongs = useMemo(() => {
+    return Array.isArray(likedSongs)
+      ? likedSongs.filter((s) => s && typeof s === "object")
+      : [];
+  }, [likedSongs]);
+
   const artistNames = useMemo(
-    () => [...new Set(likedSongs.concat(recentlyPlayed).map((s) => s.artist).filter(Boolean))],
-    [likedSongs, recentlyPlayed]
+    () => [...new Set(validLikedSongs.concat(validRecentlyPlayed).map((s) => s?.artist).filter(Boolean))],
+    [validLikedSongs, validRecentlyPlayed]
   );
 
   const displayArtistsList = useMemo(() => {
@@ -76,19 +88,19 @@ const Library = () => {
         : artistNames.map((name) => ({ name, id: name }));
     const q = artistSearch.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((a) => (a.name || "").toLowerCase().includes(q));
+    return list.filter((a) => (a?.name || "").toLowerCase().includes(q));
   }, [catalogArtists, artistNames, artistSearch]);
 
   const filteredRecentlyPlayed = useMemo(() => {
     const q = recentSearch.trim().toLowerCase();
-    if (!q) return recentlyPlayed;
-    return recentlyPlayed.filter(
+    if (!q) return validRecentlyPlayed;
+    return validRecentlyPlayed.filter(
       (s) =>
-        (s.title || "").toLowerCase().includes(q) ||
-        (s.artist || "").toLowerCase().includes(q) ||
-        (s.language || "").toLowerCase().includes(q)
+        (s?.title || "").toLowerCase().includes(q) ||
+        (s?.artist || "").toLowerCase().includes(q) ||
+        (s?.language || "").toLowerCase().includes(q)
     );
-  }, [recentlyPlayed, recentSearch]);
+  }, [validRecentlyPlayed, recentSearch]);
 
   // Filtered user playlists
   const filteredUserPlaylists = useMemo(() => {
