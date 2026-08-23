@@ -128,12 +128,23 @@ const saveLocalPlaylists = (list) => {
   }
 };
 
+let cachedYearlyOverview = null;
+let yearlyOverviewTimestamp = 0;
+const YEARLY_OVERVIEW_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * GET /api/playlists/years
  * Returns all dynamically available release years with song counts, total duration, and collage artwork.
  */
 export const getYearlyPlaylistsOverview = async (req, res) => {
   try {
+    const now = Date.now();
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+
+    if (cachedYearlyOverview && now - yearlyOverviewTimestamp < YEARLY_OVERVIEW_TTL) {
+      return res.json(cachedYearlyOverview);
+    }
+
     const songs = await getAllCatalogSongs();
     const yearBuckets = new Map();
 
@@ -183,6 +194,9 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
         createdAt: `${year}-01-01T00:00:00.000Z`,
       };
     });
+
+    cachedYearlyOverview = result;
+    yearlyOverviewTimestamp = now;
 
     res.json(result);
   } catch (err) {
