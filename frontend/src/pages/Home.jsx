@@ -150,9 +150,13 @@ const Home = () => {
   }, [feed]);
 
   // Trending in India: Mix of all languages sorted latest year first
+  // Trending in India: Latest Bollywood songs only, sorted by year descending
   const trending = useMemo(() => {
     const list = feed?.trending || [];
-    return list.map(normalizeSong).sort((a, b) => yearNum(b) - yearNum(a));
+    return list
+      .map(normalizeSong)
+      .filter((s) => (s.language || "").toLowerCase() === "bollywood")
+      .sort((a, b) => yearNum(b) - yearNum(a));
   }, [feed]);
 
   const bollywoodSongs = useMemo(() => (feed?.bollywood || []).map(normalizeSong), [feed]);
@@ -346,8 +350,8 @@ const Home = () => {
               type="button"
               onClick={() => setActiveTab(t.key)}
               className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 ${activeTab === t.key
-                  ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
-                  : "border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
+                ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
+                : "border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
                 }`}
             >
               {t.label}
@@ -537,8 +541,8 @@ const Home = () => {
                 type="button"
                 onClick={() => setActiveRegion(r.lang)}
                 className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-bold transition-all duration-200 ${activeRegion === r.lang
-                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-md shadow-amber-500/25 scale-105"
-                    : "border border-white/10 bg-white/[0.04] text-white/70 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                  ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-md shadow-amber-500/25 scale-105"
+                  : "border border-white/10 bg-white/[0.04] text-white/70 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
                   }`}
               >
                 {r.label}
