@@ -61,11 +61,6 @@ async function run() {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
           if (res.success) {
-            // Update total pages if scraper detected a real max
-            if (res.maxPages && res.maxPages < totalPagesForCat && res.maxPages >= page) {
-              totalPagesForCat = res.maxPages;
-            }
-
             const count = res.songs ? res.songs.length : 0;
             const newCount = res.newCount || 0;
             categorySongCount += newCount;
@@ -79,12 +74,6 @@ async function run() {
               }
             } else {
               consecutiveEmptyPages = 0; // Reset on any successful page
-            }
-
-            // Stop if scraper confirms no more pages
-            if (!res.hasMore && res.maxPages && res.maxPages < 999 && page >= res.maxPages) {
-              console.log(`  🏁 Reached last page (${page}) for ${cat.name}.`);
-              break;
             }
           } else {
             console.log(`⚠️  HTTP/Fetch notice (${res.message}) in ${elapsed}s`);
