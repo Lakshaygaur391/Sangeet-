@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getHomeFeed,
+  getDiscoverFeed,
   getAllSongs,
   getSongsByLanguage,
   getArtists,
@@ -21,6 +22,7 @@ const router = express.Router();
 
 router.get("/feed/home", getHomeFeed);
 router.get("/home-feed", getHomeFeed);
+router.get("/feed/discover", getDiscoverFeed);
 router.get("/songs", getAllSongs);
 router.get("/search", searchSongs);
 router.get("/songs/search", searchSongs);

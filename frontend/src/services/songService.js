@@ -42,6 +42,16 @@ try {
   }
 } catch (e) {}
 
+let _discoverFeedCache = null;
+let _discoverFeedPromise = null;
+
+try {
+  const stored = sessionStorage.getItem("sangeet_discover_feed");
+  if (stored) {
+    _discoverFeedCache = JSON.parse(stored);
+  }
+} catch (e) {}
+
 let _catalogCache = null;    // resolved song array
 let _catalogPromise = null;  // in-flight promise (prevents duplicate network calls)
 let _albumsCache = null;
@@ -67,6 +77,26 @@ export function prefetchHomeFeed(force = false) {
 
 export function getCachedHomeFeedSync() {
   return _homeFeedCache;
+}
+
+/** Pre-warm Discover Feed */
+export function prefetchDiscoverFeed(force = false) {
+  if (_discoverFeedPromise && !force) return _discoverFeedPromise;
+  _discoverFeedPromise = safeRequest(api.get("/api/feed/discover"), null).then((data) => {
+    if (data && typeof data === "object" && Object.keys(data).length > 0) {
+      _discoverFeedCache = data;
+      try {
+        sessionStorage.setItem("sangeet_discover_feed", JSON.stringify(data));
+      } catch (e) {}
+    }
+    _discoverFeedPromise = null;
+    return _discoverFeedCache;
+  });
+  return _discoverFeedPromise;
+}
+
+export function getCachedDiscoverFeedSync() {
+  return _discoverFeedCache;
 }
 
 /** Pre-warm caches on-demand */
@@ -139,6 +169,16 @@ const songService = {
     }
     if (_homeFeedPromise) return _homeFeedPromise;
     return prefetchHomeFeed(forceRefresh);
+  },
+
+  /** Returns Discover Feed sections with zero lag on revisit, refreshing in background */
+  getDiscoverFeed: (forceRefresh = false) => {
+    if (_discoverFeedCache && !forceRefresh) {
+      prefetchDiscoverFeed(true);
+      return Promise.resolve(_discoverFeedCache);
+    }
+    if (_discoverFeedPromise) return _discoverFeedPromise;
+    return prefetchDiscoverFeed(forceRefresh);
   },
 
   /** Returns catalog instantly from cache on re-visits; fetches on demand */

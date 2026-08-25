@@ -285,12 +285,17 @@ const SECTION_TTL = 10 * 60 * 1000; // 10 minutes
 let homeFeedCache = null;
 let homeFeedCacheExpiry = 0;
 
+let discoverFeedCache = null;
+let discoverFeedCacheExpiry = 0;
+
 let artistsCache = null;
 let artistsCacheExpiry = 0;
 
 export const invalidateCatalogCache = () => {
   homeFeedCache = null;
   homeFeedCacheExpiry = 0;
+  discoverFeedCache = null;
+  discoverFeedCacheExpiry = 0;
 };
 
 export const invalidateArtistsCache = () => {
@@ -473,7 +478,157 @@ async function buildHomeFeed() {
   };
 }
 
+// ── Discover Feed — all sections built via targeted DB queries ────────────────
+
+const MAINSTREAM_ARTIST_NAMES = [
+  "arijit singh", "diljit dosanjh", "badshah", "shreya ghoshal",
+  "neha kakkar", "guru randhawa", "ap dhillon", "yo yo honey singh",
+  "karan aujla", "sidhu moose wala", "b praak", "pritam", "atif aslam",
+  "jubin nautiyal", "armaan malik", "vishal mishra", "darshan raval",
+];
+
+async function buildDiscoverFeed() {
+  const recentYears = ["2026", "2025", "2024", "2023", "2022"];
+
+  const [
+    todaysPicks,
+    newVoicesRecent,
+    ninetiesClassics,
+    twothousandsHits,
+    twentyTensHits,
+    editorsPicks,
+    hiddenGems,
+    risingNow,
+  ] = await Promise.all([
+    // 1. Today's Top Picks — recent Hindi/Bollywood tracks
+    fetchSongs({
+      match: {
+        language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] },
+        year: { $in: recentYears },
+      },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
+
+    // 2. New Voices — recent tracks excluding mainstream artists
+    fetchSongs({
+      match: {
+        year: { $in: recentYears },
+        artist: { $nin: MAINSTREAM_ARTIST_NAMES.map((n) => new RegExp(`^${n}$`, "i")) },
+      },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
+
+    // 3. 90s Evergreen Bollywood
+    fetchSongs({
+      match: {
+        year: { $gte: "1990", $lte: "1999" },
+        language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] },
+      },
+      sort: { year: -1 },
+      limit: 60,
+    }),
+
+    // 4. 2000s Golden Era Bollywood
+    fetchSongs({
+      match: {
+        year: { $gte: "2000", $lte: "2009" },
+        language: { $in: ["Bollywood", "Hindi", "bollywood", "hindi"] },
+      },
+      sort: { year: -1 },
+      limit: 60,
+    }),
+
+    // 5. 2010s Blockbuster Anthems
+    fetchSongs({
+      match: {
+        year: { $gte: "2010", $lte: "2019" },
+      },
+      sort: { year: -1 },
+      limit: 60,
+    }),
+
+    // 6. Editor's Choice — mainstream superstar chartbusters
+    fetchSongs({
+      match: {
+        artist: { $in: MAINSTREAM_ARTIST_NAMES.map((n) => new RegExp(`^${n}$`, "i")) },
+      },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
+
+    // 7. Hidden Gems — indipop / acoustic
+    fetchSongs({
+      match: {
+        $or: [
+          { language: { $regex: /indipop/i } },
+          { album: { $regex: /single/i } },
+          { title: { $regex: /acoustic/i } },
+        ],
+      },
+      sort: { year: -1 },
+      limit: 60,
+    }),
+
+    // 8. Recently Rising — Punjabi / viral / remix
+    fetchSongs({
+      match: {
+        $or: [
+          { language: { $regex: /punjabi|haryanvi|viral/i } },
+          { title: { $regex: /remix/i } },
+        ],
+      },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    }),
+  ]);
+
+  // If New Voices is still thin, fall back to any non-mainstream recent artists
+  let finalNewVoices = newVoicesRecent;
+  if (finalNewVoices.length < 10) {
+    finalNewVoices = await fetchSongs({
+      match: {
+        year: { $in: [...recentYears, "2021", "2020"] },
+      },
+      sort: { year: -1, _id: -1 },
+      limit: 60,
+    });
+  }
+
+  return {
+    todaysPicks,
+    newVoices: finalNewVoices,
+    ninetiesClassics,
+    twothousandsHits,
+    twentyTensHits,
+    editorsPicks,
+    hiddenGems,
+    risingNow,
+  };
+}
+
 // ── Route handlers ────────────────────────────────────────────────────────────
+
+export const getDiscoverFeed = async (req, res) => {
+  try {
+    const now = Date.now();
+    if (discoverFeedCache && now < discoverFeedCacheExpiry) {
+      res.setHeader("Cache-Control", "public, max-age=300");
+      return res.json(discoverFeedCache);
+    }
+
+    const feed = await buildDiscoverFeed();
+    discoverFeedCache = feed;
+    discoverFeedCacheExpiry = now + SECTION_TTL;
+
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.json(feed);
+  } catch (err) {
+    console.error("Error in getDiscoverFeed:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
 
 export const getHomeFeed = async (req, res) => {
   try {
