@@ -177,6 +177,32 @@ const songService = {
     return _artistsPromise;
   },
 
+  /** Returns all songs by a specific artist */
+  getArtistSongs: async (artistName) => {
+    const cleanName = (artistName || "").trim();
+    if (!cleanName) return [];
+
+    // Try dedicated artist endpoint first
+    const res = await safeRequest(
+      api.get(`/api/artists/${encodeURIComponent(cleanName)}`),
+      null
+    );
+    if (Array.isArray(res) && res.length > 0) {
+      return withAudio(res);
+    }
+
+    // Fallback: search endpoint for artist name
+    const searchRes = await safeRequest(
+      api.get("/api/search", { params: { q: cleanName, limit: 100 } }),
+      null
+    );
+    if (Array.isArray(searchRes) && searchRes.length > 0) {
+      return withAudio(searchRes);
+    }
+
+    return [];
+  },
+
   /** Fetch songs by language with server-side pagination */
   getByLanguage: async (language, page = 1, limit = 50) => {
     const res = await safeRequest(

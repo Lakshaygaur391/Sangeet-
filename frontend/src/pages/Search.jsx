@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
+import { IoClose, IoTimeOutline, IoTrashOutline, IoSearch } from "react-icons/io5";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
@@ -222,7 +222,7 @@ const Search = () => {
     return LANGUAGES.filter((l) => l.toLowerCase().includes(q));
   }, [activeQuery]);
 
-  const hasQuery = Boolean((currentQuery || "").trim());
+  const hasQuery = Boolean(activeQuery);
   const isLoading = status === "loading";
   const hasResults =
     songResults.length > 0 ||
@@ -231,6 +231,34 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
+      {/* Mobile-only Search Bar (on desktop it is in the Topbar navigation) */}
+      <div className="relative md:hidden">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#141415] px-4 py-3 shadow-lg shadow-black/20 focus-within:border-amber-400/40 focus-within:ring-1 focus-within:ring-amber-400/20">
+          <IoSearch className="shrink-0 text-lg text-white/45" />
+          <input
+            type="text"
+            value={urlQuery}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchParams(val.trim() ? { q: val } : {}, { replace: true });
+            }}
+            placeholder="Search songs, artists, languages…"
+            aria-label="Search"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none"
+          />
+          {urlQuery && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchParams({}, { replace: true })}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 hover:text-white"
+            >
+              <IoClose className="text-sm" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* When no query is typed: Recent searches & Browse Languages */}
       {!hasQuery && (
         <div className="space-y-8 animate-fadeIn">

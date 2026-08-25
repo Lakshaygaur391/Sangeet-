@@ -66,8 +66,8 @@ const Topbar = () => {
         </span>
       </Link>
 
-      {/* Navigation Search Bar */}
-      <div className="mx-auto flex max-w-md flex-1 px-1 sm:px-2">
+      {/* Navigation Search Bar (Desktop only, mobile uses bottom nav & page search) */}
+      <div className="mx-auto hidden max-w-md flex-1 px-1 sm:px-2 md:flex">
         <div
           onClick={handleSearchClick}
           className={`flex w-full items-center gap-2 rounded-full border px-3 py-1.5 transition-all duration-200 cursor-pointer ${

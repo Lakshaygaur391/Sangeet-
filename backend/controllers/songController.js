@@ -904,6 +904,49 @@ export const getAlbums = async (req, res) => {
   }
 };
 
+export const getSongsByArtist = async (req, res) => {
+  try {
+    const artistName = decodeURIComponent(req.params.name || "").trim();
+    if (!artistName) return res.status(400).json({ message: "Artist name required" });
+
+    const escaped = artistName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    if (mongoose.connection.readyState === 1) {
+      const songs = await Song.find({
+        $or: [
+          { artist: regex },
+          { title: regex },
+        ],
+        audio_url: { $exists: true, $ne: "" },
+      })
+        .select(SONG_FIELDS)
+        .sort({ year: -1 })
+        .limit(200)
+        .lean();
+
+      const deduped = dedupeSongs(songs);
+      res.setHeader("Cache-Control", "public, max-age=180");
+      return res.json(deduped);
+    }
+
+    // Local dataset fallback
+    const allLocal = getLocalSongs().filter((s) => s.audio_url && s.audio_url.trim() !== "");
+    const matched = allLocal.filter((s) => {
+      const art = (s.artist || "").toLowerCase();
+      const tit = (s.title || "").toLowerCase();
+      const target = artistName.toLowerCase();
+      return art.includes(target) || tit.includes(target);
+    });
+
+    const deduped = dedupeSongs(matched);
+    res.setHeader("Cache-Control", "public, max-age=180");
+    return res.json(deduped);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getSongsByAlbum = async (req, res) => {
   try {
     const albumName = decodeURIComponent(req.params.name || "");

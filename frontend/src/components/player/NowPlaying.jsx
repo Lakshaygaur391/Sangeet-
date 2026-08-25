@@ -126,9 +126,16 @@ const NowPlaying = () => {
     seekTo(val);
   };
 
+  const handleClose = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setIsNowPlayingOpen(false);
+  };
+
   return (
     <div
-      aria-hidden={!isNowPlayingOpen}
+      inert={!isNowPlayingOpen ? "" : undefined}
       className={`fixed inset-0 z-[85] flex flex-col justify-between overflow-y-auto bg-[#070709] text-white select-none lg:overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu will-change-transform ${
         isNowPlayingOpen
           ? "opacity-100 translate-y-0 pointer-events-auto visible"
@@ -156,7 +163,7 @@ const NowPlaying = () => {
         <button
           type="button"
           aria-label="Minimize Now Playing"
-          onClick={() => setIsNowPlayingOpen(false)}
+          onClick={handleClose}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/15 hover:text-white active:scale-90"
           title="Minimize (Esc)"
         >

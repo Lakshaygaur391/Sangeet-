@@ -31,9 +31,9 @@ const Artist = () => {
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
-  const cached = getCachedCatalogSync();
-  const [allSongs, setAllSongs] = useState(cached || []);
-  const [status, setStatus] = useState(cached && cached.length > 0 ? "ready" : "loading");
+  const [artistSongs, setArtistSongs] = useState([]);
+  const [allSongs, setAllSongs] = useState(() => getCachedCatalogSync() || []);
+  const [status, setStatus] = useState("loading");
   const [following, setFollowing] = useState(false);
   const [heroImgError, setHeroImgError] = useState(false);
   const [artistSearch, setArtistSearch] = useState("");
@@ -51,26 +51,64 @@ const Artist = () => {
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      if (!getCachedCatalogSync()) {
-        setStatus("loading");
+
+    async function loadArtistData() {
+      if (!decodedName) return;
+      setStatus("loading");
+
+      try {
+        // 1. Fetch artist tracks directly from dedicated backend endpoint
+        const fetched = await songService.getArtistSongs(decodedName);
+        if (cancelled) return;
+
+        if (Array.isArray(fetched) && fetched.length > 0) {
+          const sorted = fetched.map(normalizeSong).sort((a, b) => {
+            const ya = parseInt(a.year || "0", 10);
+            const yb = parseInt(b.year || "0", 10);
+            if (ya > 0 && yb > 0) return yb - ya;
+            if (ya > 0) return -1;
+            if (yb > 0) return 1;
+            return 0;
+          });
+          setArtistSongs(sorted);
+          setStatus("ready");
+        } else {
+          // 2. Fallback: check full catalog cache
+          const catalog = await songService.getAll();
+          if (cancelled) return;
+
+          const matched = (catalog || [])
+            .map(normalizeSong)
+            .filter((s) => isArtistMatch(s.artist, decodedName, s.title))
+            .sort((a, b) => {
+              const ya = parseInt(a.year || "0", 10);
+              const yb = parseInt(b.year || "0", 10);
+              if (ya > 0 && yb > 0) return yb - ya;
+              if (ya > 0) return -1;
+              if (yb > 0) return 1;
+              return 0;
+            });
+
+          setArtistSongs(matched);
+          setStatus("ready");
+        }
+
+        // Background pre-warm catalog for related artists
+        songService.getAll().then((data) => {
+          if (!cancelled && data) setAllSongs(data);
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setStatus("error");
+        }
       }
-      const fetched = await songService.getAll();
-      if (cancelled) return;
-      if (fetched === null && !getCachedCatalogSync()) {
-        setStatus("error");
-        return;
-      }
-      if (fetched) {
-        setAllSongs(fetched);
-      }
-      setStatus("ready");
     }
-    load();
+
+    loadArtistData();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [decodedName]);
 
   // Reset pagination on artist change
   useEffect(() => {
@@ -79,22 +117,6 @@ const Artist = () => {
   }, [decodedName]);
 
   const songs = useMemo(() => allSongs.map(normalizeSong), [allSongs]);
-
-  // Robust artist matching for single, collaborative, and feat. tracks
-  const artistSongs = useMemo(() => {
-    if (!decodedName) return [];
-    const matched = songs.filter((s) => isArtistMatch(s.artist, decodedName, s.title));
-
-    // Sort newest releases first (latest year → oldest). Songs with no year go to the end.
-    return matched.sort((a, b) => {
-      const ya = parseInt(a.year || "0", 10);
-      const yb = parseInt(b.year || "0", 10);
-      if (ya > 0 && yb > 0) return yb - ya;
-      if (ya > 0) return -1;
-      if (yb > 0) return 1;
-      return 0;
-    });
-  }, [songs, decodedName]);
 
   const displayArtistSongs = useMemo(() => {
     const q = artistSearch.trim().toLowerCase();

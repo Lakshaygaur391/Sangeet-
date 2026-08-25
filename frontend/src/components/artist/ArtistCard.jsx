@@ -73,12 +73,9 @@ const ArtistCard = memo(({ artist, onPlay }) => {
 
     try {
       setIsPlayingLoading(true);
-      const allSongs = await songService.getAll();
-      const artistSongs = (allSongs || [])
-        .map(normalizeSong)
-        .filter((s) => (s.artist || "").toLowerCase().includes(artistName.toLowerCase()));
+      const artistSongs = await songService.getArtistSongs(artistName);
 
-      if (artistSongs.length > 0) {
+      if (Array.isArray(artistSongs) && artistSongs.length > 0) {
         playSong(artistSongs[0], artistSongs, 0);
       } else {
         navigate(`/artist/${encodeURIComponent(artistName)}`);
