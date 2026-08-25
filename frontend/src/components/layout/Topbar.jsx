@@ -2,13 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { IoLogOutOutline, IoMenuOutline, IoSearch, IoClose } from "react-icons/io5";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { usePlayer } from "../../context/PlayerContext";
 import { useUI } from "../../context/UIContext";
 import { avatarFor } from "../../lib/media";
 
 const Topbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { searchQuery, setSearchQuery } = usePlayer();
   const { openAuthPrompt, toast } = useUI();
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,14 +14,15 @@ const Topbar = () => {
   const searchInputRef = useRef(null);
 
   const isSearchPage = location.pathname === "/search";
-
-  // Keep search input in sync with URL search query param ?q=
   const urlQ = new URLSearchParams(location.search).get("q") || "";
+  const [localInput, setLocalInput] = useState(urlQ);
+
+  // Sync input value with URL search query param
   useEffect(() => {
     if (isSearchPage) {
-      setSearchQuery(urlQ);
+      setLocalInput(urlQ);
     }
-  }, [isSearchPage, urlQ, setSearchQuery]);
+  }, [isSearchPage, urlQ]);
 
   // Global Ctrl/Cmd + K shortcut to focus navigation search
   useEffect(() => {
@@ -31,25 +30,25 @@ const Topbar = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         if (!isSearchPage) {
-          navigate(searchQuery.trim() ? `/search?q=${encodeURIComponent(searchQuery)}` : "/search");
+          navigate(localInput.trim() ? `/search?q=${encodeURIComponent(localInput)}` : "/search");
         }
         setTimeout(() => searchInputRef.current?.focus(), 50);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSearchPage, searchQuery, navigate]);
+  }, [isSearchPage, localInput, navigate]);
 
   const handleSearchChange = (e) => {
     const val = e.target.value;
-    setSearchQuery(val);
+    setLocalInput(val);
     const target = val.trim() ? `/search?q=${encodeURIComponent(val)}` : "/search";
     navigate(target, { replace: isSearchPage });
   };
 
   const handleSearchFocus = () => {
     if (!isSearchPage) {
-      navigate(searchQuery.trim() ? `/search?q=${encodeURIComponent(searchQuery)}` : "/search");
+      navigate(localInput.trim() ? `/search?q=${encodeURIComponent(localInput)}` : "/search");
     }
   };
 
@@ -81,19 +80,19 @@ const Topbar = () => {
           <input
             ref={searchInputRef}
             type="text"
-            value={searchQuery}
+            value={localInput}
             onFocus={handleSearchFocus}
             onChange={handleSearchChange}
             placeholder="Search songs, artists, genres..."
             className="min-w-0 flex-1 bg-transparent text-xs font-medium text-white placeholder:text-white/35 focus:outline-none"
           />
-          {searchQuery ? (
+          {localInput ? (
             <button
               type="button"
               aria-label="Clear"
               onClick={(e) => {
                 e.stopPropagation();
-                setSearchQuery("");
+                setLocalInput("");
                 if (isSearchPage) navigate("/search", { replace: true });
               }}
               className="shrink-0 text-white/40 hover:text-white"

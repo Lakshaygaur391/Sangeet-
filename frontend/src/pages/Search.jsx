@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef, useDeferredValue } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
 import SongCard from "../components/song/SongCard";
@@ -36,53 +36,34 @@ function loadRecentSearches() {
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { playSong, searchQuery, setSearchQuery } = usePlayer();
+  const { playSong } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
   const urlQuery = (searchParams.get("q") || "").trim();
-  const currentQuery = searchQuery !== undefined ? searchQuery : urlQuery;
-
-  // useDeferredValue ensures high-priority typing while search compute is deferred
-  const deferredQuery = useDeferredValue(currentQuery);
-  const [debouncedQuery, setDebouncedQuery] = useState(currentQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(urlQuery);
 
   const [searchResults, setSearchResults] = useState(() => {
-    if (currentQuery) {
-      const cached = getCachedSearchResults(currentQuery);
+    if (urlQuery) {
+      const cached = getCachedSearchResults(urlQuery);
       return cached ? cached.map(normalizeSong) : [];
     }
     return [];
   });
 
-  const [status, setStatus] = useState(currentQuery ? "loading" : "idle");
+  const [status, setStatus] = useState(urlQuery ? "loading" : "idle");
   const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
 
   const abortControllerRef = useRef(null);
 
-  // Synchronize when URL search param changes externally (e.g. browser back/forward or navigation bar)
+  // Debounce URL query changes (150ms) for fast API calls
   useEffect(() => {
-    const q = (searchParams.get("q") || "").trim();
-    if (q !== searchQuery) {
-      setSearchQuery(q);
-    }
-  }, [searchParams, setSearchQuery]);
-
-  // Debounce API search query & URL param update (300ms)
-  useEffect(() => {
-    const trimmed = (currentQuery || "").trim();
     const timer = setTimeout(() => {
-      setDebouncedQuery(trimmed);
-      if (trimmed) {
-        setSearchParams({ q: trimmed }, { replace: true });
-      } else {
-        setSearchParams({}, { replace: true });
-      }
-    }, 300);
-
+      setDebouncedQuery(urlQuery);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [currentQuery, setSearchParams]);
+  }, [urlQuery]);
 
   // Live search execution with cache and AbortController
   useEffect(() => {
@@ -183,12 +164,11 @@ const Search = () => {
   };
 
   const handleSelectQuery = (q) => {
-    setSearchQuery(q);
     setSearchParams({ q }, { replace: true });
   };
 
-  // Deferred ranking calculation so input typing is never blocked
-  const activeQuery = (deferredQuery || "").trim();
+  // Ranking calculation
+  const activeQuery = (urlQuery || debouncedQuery || "").trim();
 
   const songResults = useMemo(() => {
     if (!activeQuery || !searchResults.length) return [];

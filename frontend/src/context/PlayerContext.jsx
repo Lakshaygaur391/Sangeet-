@@ -300,6 +300,8 @@ export const PlayerProvider = ({ children }) => {
       clearQueue,
       moveQueueItem,
       registerOnPlay,
+      searchQuery,
+      setSearchQuery,
       // Pass-through helpers
       seekTo,
       currentTime,
@@ -330,6 +332,8 @@ export const PlayerProvider = ({ children }) => {
       clearQueue,
       moveQueueItem,
       registerOnPlay,
+      searchQuery,
+      setSearchQuery,
       seekTo,
       updateCurrentTime,
     ]
