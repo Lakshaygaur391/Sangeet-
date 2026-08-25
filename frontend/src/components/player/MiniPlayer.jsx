@@ -1,13 +1,14 @@
 import { IoPlay, IoPause, IoPlaySkipForward } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
-import { usePlayer } from "../../context/PlayerContext";
+import { usePlayer, usePlaybackProgress } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
 
 // Mobile-only compact player. The actual audio engine lives in
 // <Player /> (rendered but visually hidden below md), this just reflects
 // and controls the shared PlayerContext state.
 const MiniPlayer = () => {
-  const { currentSong, isPlaying, setIsPlaying, playNext, setIsNowPlayingOpen, currentTime, duration } = usePlayer();
+  const { currentSong, isPlaying, setIsPlaying, playNext, setIsNowPlayingOpen } = usePlayer();
+  const { currentTime, duration } = usePlaybackProgress();
   const { isLiked, toggleLike } = useLibrary();
 
   if (!currentSong) return null;

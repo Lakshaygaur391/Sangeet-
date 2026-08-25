@@ -13,7 +13,7 @@ import {
   IoVolumeMute,
 } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
-import { usePlayer } from "../../context/PlayerContext";
+import { usePlayer, usePlaybackProgress } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
 import { useUI } from "../../context/UIContext";
 import { formatTime, normalizeSong, songId } from "../../lib/media";
@@ -33,15 +33,14 @@ const NowPlaying = () => {
     repeatMode,
     cycleRepeat,
     setIsQueueOpen,
-    currentTime,
-    duration,
-    seekTo,
     songList,
     setSongList,
     playSong,
     volume,
     setVolume,
   } = usePlayer();
+
+  const { currentTime, duration, seekTo } = usePlaybackProgress();
   const { isLiked, toggleLike } = useLibrary();
   const { toast } = useUI();
   const [activeTab, setActiveTab] = useState("queue"); // 'queue' | 'related'
@@ -125,11 +124,6 @@ const NowPlaying = () => {
     const val = Number(e.target.value);
     setIsScrubbing(false);
     seekTo(val);
-  };
-
-  const skipSeconds = (delta) => {
-    const target = Math.max(0, Math.min(duration || 0, currentTime + delta));
-    seekTo(target);
   };
 
   return (
@@ -317,17 +311,6 @@ const NowPlaying = () => {
               <IoPlaySkipBack className="text-lg sm:text-xl" />
             </button>
 
-            {/* Rewind 10s */}
-            <button
-              type="button"
-              aria-label="Rewind 10 seconds"
-              onClick={() => skipSeconds(-10)}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[10px] font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
-              title="Rewind 10s"
-            >
-              -10s
-            </button>
-
             <button
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
@@ -340,17 +323,6 @@ const NowPlaying = () => {
               ) : (
                 <IoPlay className="translate-x-0.5 text-2xl sm:text-3xl" />
               )}
-            </button>
-
-            {/* Forward 10s */}
-            <button
-              type="button"
-              aria-label="Forward 10 seconds"
-              onClick={() => skipSeconds(10)}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-[10px] font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
-              title="Forward 10s"
-            >
-              +10s
             </button>
 
             <button

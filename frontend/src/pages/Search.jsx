@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef, useDeferredValue } from "react";
 import { useSearchParams } from "react-router-dom";
-import { IoIosSearch } from "react-icons/io";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
@@ -37,42 +36,42 @@ function loadRecentSearches() {
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { playSong } = usePlayer();
+  const { playSong, searchQuery, setSearchQuery } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
-  const initialParamQuery = searchParams.get("q") || "";
-  const [inputQuery, setInputQuery] = useState(initialParamQuery);
+  const urlQuery = (searchParams.get("q") || "").trim();
+  const currentQuery = searchQuery !== undefined ? searchQuery : urlQuery;
 
-  // useDeferredValue ensures high-priority instantaneous typing while search compute is deferred
-  const deferredQuery = useDeferredValue(inputQuery);
-  const [debouncedQuery, setDebouncedQuery] = useState(initialParamQuery);
+  // useDeferredValue ensures high-priority typing while search compute is deferred
+  const deferredQuery = useDeferredValue(currentQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(currentQuery);
 
   const [searchResults, setSearchResults] = useState(() => {
-    if (initialParamQuery) {
-      const cached = getCachedSearchResults(initialParamQuery);
+    if (currentQuery) {
+      const cached = getCachedSearchResults(currentQuery);
       return cached ? cached.map(normalizeSong) : [];
     }
     return [];
   });
 
-  const [status, setStatus] = useState(initialParamQuery ? "loading" : "idle");
+  const [status, setStatus] = useState(currentQuery ? "loading" : "idle");
   const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState(null);
 
   const abortControllerRef = useRef(null);
 
-  // Synchronize when URL search param changes externally (e.g. browser back/forward or topbar search)
+  // Synchronize when URL search param changes externally (e.g. browser back/forward or navigation bar)
   useEffect(() => {
-    const urlQ = (searchParams.get("q") || "").trim();
-    if (urlQ !== inputQuery.trim()) {
-      setInputQuery(urlQ);
+    const q = (searchParams.get("q") || "").trim();
+    if (q !== searchQuery) {
+      setSearchQuery(q);
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchQuery]);
 
-  // Debounce API search query & URL param update (300ms) to avoid re-rendering router on every key
+  // Debounce API search query & URL param update (300ms)
   useEffect(() => {
-    const trimmed = inputQuery.trim();
+    const trimmed = (currentQuery || "").trim();
     const timer = setTimeout(() => {
       setDebouncedQuery(trimmed);
       if (trimmed) {
@@ -83,7 +82,7 @@ const Search = () => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [inputQuery, setSearchParams]);
+  }, [currentQuery, setSearchParams]);
 
   // Live search execution with cache and AbortController
   useEffect(() => {
@@ -183,8 +182,13 @@ const Search = () => {
     });
   };
 
+  const handleSelectQuery = (q) => {
+    setSearchQuery(q);
+    setSearchParams({ q }, { replace: true });
+  };
+
   // Deferred ranking calculation so input typing is never blocked
-  const activeQuery = deferredQuery.trim();
+  const activeQuery = (deferredQuery || "").trim();
 
   const songResults = useMemo(() => {
     if (!activeQuery || !searchResults.length) return [];
@@ -238,7 +242,7 @@ const Search = () => {
     return LANGUAGES.filter((l) => l.toLowerCase().includes(q));
   }, [activeQuery]);
 
-  const hasQuery = Boolean(inputQuery.trim());
+  const hasQuery = Boolean((currentQuery || "").trim());
   const isLoading = status === "loading";
   const hasResults =
     songResults.length > 0 ||
@@ -247,36 +251,6 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search Input Bar */}
-      <div className="relative">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#141415] px-4 py-3.5 shadow-lg shadow-black/20 transition-all duration-200 focus-within:border-amber-400/40 focus-within:shadow-amber-400/10 focus-within:ring-1 focus-within:ring-amber-400/20">
-          <IoIosSearch className="shrink-0 text-xl text-white/45" />
-          <input
-            autoFocus
-            type="text"
-            value={inputQuery}
-            onChange={(e) => setInputQuery(e.target.value)}
-            placeholder="Search songs, artists, albums, languages…"
-            aria-label="Search"
-            className="min-w-0 flex-1 bg-transparent text-white placeholder:text-white/35 focus:outline-none"
-          />
-          {inputQuery && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => {
-                setInputQuery("");
-                setSearchResults([]);
-                setSearchParams({}, { replace: true });
-              }}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/15 hover:text-white"
-            >
-              <IoClose className="text-sm" />
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* When no query is typed: Recent searches & Browse Languages */}
       {!hasQuery && (
         <div className="space-y-8 animate-fadeIn">
@@ -311,7 +285,7 @@ const Search = () => {
                   >
                     <button
                       type="button"
-                      onClick={() => setInputQuery(q)}
+                      onClick={() => handleSelectQuery(q)}
                       className="text-left hover:text-white"
                     >
                       {q}
@@ -337,7 +311,7 @@ const Search = () => {
                 <button
                   key={lang}
                   type="button"
-                  onClick={() => setInputQuery(lang)}
+                  onClick={() => handleSelectQuery(lang)}
                   className="rounded-xl border border-amber-400/15 bg-amber-400/[0.05] py-3 px-4 text-center text-sm font-medium text-amber-200 transition hover:border-amber-400/30 hover:bg-amber-400/[0.10] hover:text-amber-100 active:scale-95"
                 >
                   {lang}
@@ -372,7 +346,7 @@ const Search = () => {
                 <button
                   key={l}
                   type="button"
-                  onClick={() => setInputQuery(l)}
+                  onClick={() => handleSelectQuery(l)}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white transition"
                 >
                   {l}
@@ -395,7 +369,7 @@ const Search = () => {
                   <button
                     key={l}
                     type="button"
-                    onClick={() => setInputQuery(l)}
+                    onClick={() => handleSelectQuery(l)}
                     className="rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-400/20 hover:border-amber-400/40 transition cursor-pointer"
                   >
                     {l}

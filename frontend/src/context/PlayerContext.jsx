@@ -144,6 +144,10 @@ export const PlayerProvider = ({ children }) => {
     setSongList(list);
     setCurrentIndex(resolvedIndex >= 0 ? resolvedIndex : 0);
     setCurrentSong(song);
+    setCurrentTime(0);
+    if (song.duration) {
+      setDuration(Number(song.duration));
+    }
     setIsPlaying(true);
     onPlayRef.current?.(song);
     return true;
@@ -157,6 +161,10 @@ export const PlayerProvider = ({ children }) => {
       if (!song.audio_url) return;
       setCurrentIndex(safeIndex);
       setCurrentSong(song);
+      setCurrentTime(0);
+      if (song.duration) {
+        setDuration(Number(song.duration));
+      }
       setIsPlaying(true);
       onPlayRef.current?.(song);
     },

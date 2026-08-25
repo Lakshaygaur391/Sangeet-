@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { IoLogOutOutline, IoMenuOutline, IoSearch, IoClose } from "react-icons/io5";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -17,12 +17,34 @@ const Topbar = () => {
 
   const isSearchPage = location.pathname === "/search";
 
+  // Keep search input in sync with URL search query param ?q=
+  const urlQ = new URLSearchParams(location.search).get("q") || "";
+  useEffect(() => {
+    if (isSearchPage) {
+      setSearchQuery(urlQ);
+    }
+  }, [isSearchPage, urlQ, setSearchQuery]);
+
+  // Global Ctrl/Cmd + K shortcut to focus navigation search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (!isSearchPage) {
+          navigate(searchQuery.trim() ? `/search?q=${encodeURIComponent(searchQuery)}` : "/search");
+        }
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchPage, searchQuery, navigate]);
+
   const handleSearchChange = (e) => {
     const val = e.target.value;
     setSearchQuery(val);
-    if (!isSearchPage) {
-      navigate(val.trim() ? `/search?q=${encodeURIComponent(val)}` : "/search", { replace: true });
-    }
+    const target = val.trim() ? `/search?q=${encodeURIComponent(val)}` : "/search";
+    navigate(target, { replace: isSearchPage });
   };
 
   const handleSearchFocus = () => {
@@ -34,28 +56,28 @@ const Topbar = () => {
   const handleSearchClick = handleSearchFocus;
 
   return (
-    <nav className="relative flex items-center justify-between gap-3 px-4 py-3 text-white md:gap-4">
+    <nav className="relative flex items-center justify-between gap-2 px-3 py-2.5 text-white sm:gap-4 sm:px-4 sm:py-3">
       {/* Brand Logo */}
-      <Link to="/" className="flex shrink-0 items-center gap-2.5 leading-none transition hover:opacity-90">
+      <Link to="/" className="flex shrink-0 items-center gap-2 leading-none transition hover:opacity-90">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/25">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
         </span>
-        <span className="text-lg font-black tracking-[0.14em] text-white">
+        <span className="hidden text-lg font-black tracking-[0.14em] text-white sm:inline-block">
           SANGEET
         </span>
       </Link>
 
-      {/* Global Quick Search Bar (Spotify / Apple Music style) */}
-      <div className="mx-auto hidden max-w-md flex-1 md:block">
+      {/* Navigation Search Bar */}
+      <div className="mx-auto flex max-w-md flex-1 px-1 sm:px-2">
         <div
           onClick={handleSearchClick}
-          className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 transition-all duration-200 cursor-pointer ${
+          className={`flex w-full items-center gap-2 rounded-full border px-3 py-1.5 transition-all duration-200 cursor-pointer ${
             isSearchPage
               ? "border-amber-400/50 bg-[#161618] ring-1 ring-amber-400/20"
               : "border-white/[0.09] bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.07]"
           }`}
         >
-          <IoSearch className="text-base text-white/50" />
+          <IoSearch className="shrink-0 text-base text-white/50" />
           <input
             ref={searchInputRef}
             type="text"
@@ -72,9 +94,9 @@ const Topbar = () => {
               onClick={(e) => {
                 e.stopPropagation();
                 setSearchQuery("");
-                if (isSearchPage) navigate("/search");
+                if (isSearchPage) navigate("/search", { replace: true });
               }}
-              className="text-white/40 hover:text-white"
+              className="shrink-0 text-white/40 hover:text-white"
             >
               <IoClose className="text-sm" />
             </button>

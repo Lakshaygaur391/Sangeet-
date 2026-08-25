@@ -49,6 +49,10 @@ const Player = () => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
 
+  // Preload next track in queue for zero-gap playback
+  const { songList, currentIndex } = usePlayer();
+  const nextTrackUrl = songList[currentIndex + 1]?.audio_url;
+
   // OS Notification, Lock-Screen, and Headphone Controls
   useMediaSession({
     currentSong,
@@ -82,11 +86,20 @@ const Player = () => {
     });
   }, [registerEngine]);
 
-  useEffect(() => {
-    setCurrentTime(0);
-    setDuration(0);
-  }, [currentSong?.audio_url]);
+  const restoredInitialTimeRef = useRef(true);
 
+  // When song changes, reset time and trigger immediate loading and playback
+  useEffect(() => {
+    if (!audioRef.current || !currentSong?.audio_url) return;
+    
+    // Load and play immediately
+    if (isPlaying) {
+      const p = audioRef.current.play();
+      if (p !== undefined) {
+        p.catch((err) => console.warn("Audio play initiated:", err.message));
+      }
+    }
+  }, [currentSong?.audio_url]);
 
   // Synchronize Play / Pause state with HTML5 Audio
   useEffect(() => {
@@ -99,7 +112,7 @@ const Player = () => {
     } else {
       audioRef.current.pause();
     }
-  }, [isPlaying, currentSong?.audio_url]);
+  }, [isPlaying]);
 
   // Synchronize Volume with HTML5 Audio
   useEffect(() => {
@@ -115,7 +128,11 @@ const Player = () => {
     }
   };
 
-  const restoredTimeRef = useRef(true);
+  const handleCanPlay = () => {
+    if (isPlaying && audioRef.current && audioRef.current.paused) {
+      audioRef.current.play().catch(() => { });
+    }
+  };
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
@@ -124,15 +141,19 @@ const Player = () => {
         setDuration(dur);
       }
       audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
-      if (restoredTimeRef.current && currentTime > 0) {
+      
+      // Only restore time once on the very first page load if any saved time exists
+      if (restoredInitialTimeRef.current && currentTime > 0) {
         try {
           audioRef.current.currentTime = currentTime;
         } catch {
           // Ignore
         }
-        restoredTimeRef.current = false;
+        restoredInitialTimeRef.current = false;
       }
-      if (isPlaying) audioRef.current.play().catch(() => { });
+      if (isPlaying && audioRef.current.paused) {
+        audioRef.current.play().catch(() => { });
+      }
     }
   };
 
@@ -167,11 +188,12 @@ const Player = () => {
 
   return (
     <>
-      {/* Native HTML5 Audio — enables background play, OS controls, Bluetooth */}
+      {/* Native HTML5 Audio — optimized with preload="auto" and instant canplay triggering */}
       <audio
         ref={audioRef}
         src={currentSong.audio_url || ""}
-        preload="metadata"
+        preload="auto"
+        onCanPlay={handleCanPlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onDurationChange={handleLoadedMetadata}
@@ -179,6 +201,16 @@ const Player = () => {
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       />
+
+      {/* Hidden preloader for next track in queue */}
+      {nextTrackUrl && (
+        <audio
+          src={nextTrackUrl}
+          preload="auto"
+          className="hidden"
+          aria-hidden="true"
+        />
+      )}
 
       {/* Desktop Transport Bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[90px] items-center gap-4 border-t border-white/[0.07] bg-[#0c0c0d]/96 px-4 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:flex md:px-6">
