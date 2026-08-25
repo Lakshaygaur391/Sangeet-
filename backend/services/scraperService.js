@@ -308,7 +308,9 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
 
   const pageUrl = pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/+$/, "")}/page/${pageNum}/`;
   const MAX_SONGS_PER_SCRAPE = 50;
-  let maxPages = 1;
+  // Hard cap — pagalworld has up to ~300 pages per category
+  const HARD_MAX_PAGES = 300;
+  let maxPages = HARD_MAX_PAGES;
 
   // ── Step 1: Category listing → collect album links ────────────────────────
   const albumUrls = [];
@@ -323,13 +325,24 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     }
     const $ = cheerio.load(res.data);
 
+    // Detect maxPages from ALL pagination links (including last-page link)
+    // Pagalworld shows a sliding window of pages, so we grab the highest number seen
+    // and also check for a dedicated "last" or ">>" link.
     $("a[href*='/page/']").each((_, el) => {
       const m = ($(el).attr("href") || "").match(/\/page\/(\d+)\//);
       if (m) {
         const n = parseInt(m[1], 10);
-        if (n > maxPages) maxPages = n;
+        // Only trust page numbers if they look real (> 0 and < 1000)
+        if (n > 0 && n < 1000 && n > (maxPages === HARD_MAX_PAGES ? 0 : maxPages)) {
+          maxPages = n;
+        }
       }
     });
+    // If we never found any page link higher than current page, keep the hard cap
+    // so the populate script keeps going until no albums are returned
+    if (maxPages === HARD_MAX_PAGES || maxPages <= pageNum) {
+      maxPages = HARD_MAX_PAGES;
+    }
 
     const seenAlbums = new Set();
     $("a[href]").each((_, el) => {

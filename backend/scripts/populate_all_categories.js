@@ -47,36 +47,57 @@ async function run() {
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       let page = 1;
-      let totalPagesForCat = 1;
+      let totalPagesForCat = 999; // Will be refined by scraper; stops when empty pages hit
       let categorySongCount = 0;
+      let consecutiveEmptyPages = 0;
+      const MAX_CONSECUTIVE_EMPTY = 3; // Stop after 3 empty pages in a row
 
       while (page <= totalPagesForCat) {
         const startTime = Date.now();
-        process.stdout.write(`  ↳ [${cat.name}] Page ${page}${totalPagesForCat > 1 ? `/${totalPagesForCat}` : ""}... `);
+        process.stdout.write(`  ↳ [${cat.name}] Page ${page}... `);
 
         try {
           const res = await scrapeCategoryPage(cat.key, page);
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
           if (res.success) {
-            if (res.maxPages && res.maxPages > totalPagesForCat) {
+            // Update total pages if scraper detected a real max
+            if (res.maxPages && res.maxPages < totalPagesForCat && res.maxPages >= page) {
               totalPagesForCat = res.maxPages;
             }
 
             const count = res.songs ? res.songs.length : 0;
-            categorySongCount += res.newCount || count;
-            console.log(`✅ ${elapsed}s | Extracted: ${count} songs | New: ${res.newCount || count} | Max Pages: ${totalPagesForCat}`);
+            const newCount = res.newCount || 0;
+            categorySongCount += newCount;
+            console.log(`✅ ${elapsed}s | Extracted: ${count} | New: ${newCount} | Page: ${page}/${totalPagesForCat < 999 ? totalPagesForCat : "?"}`);
 
-            // Stop if there are no more pages available on PagalWorld
-            if (!res.hasMore && page >= totalPagesForCat) {
-              console.log(`  🏁 Reached last page for ${cat.name}.`);
+            if (count === 0) {
+              consecutiveEmptyPages++;
+              if (consecutiveEmptyPages >= MAX_CONSECUTIVE_EMPTY) {
+                console.log(`  🏁 ${MAX_CONSECUTIVE_EMPTY} consecutive empty pages — reached end of [${cat.name}].`);
+                break;
+              }
+            } else {
+              consecutiveEmptyPages = 0; // Reset on any successful page
+            }
+
+            // Stop if scraper confirms no more pages
+            if (!res.hasMore && res.maxPages && res.maxPages < 999 && page >= res.maxPages) {
+              console.log(`  🏁 Reached last page (${page}) for ${cat.name}.`);
               break;
             }
           } else {
-            console.log(`⚠️ HTTP/Fetch notice (${res.message}) in ${elapsed}s`);
+            console.log(`⚠️  HTTP/Fetch notice (${res.message}) in ${elapsed}s`);
+            consecutiveEmptyPages++;
+            if (consecutiveEmptyPages >= MAX_CONSECUTIVE_EMPTY) {
+              console.log(`  🏁 Too many errors — skipping rest of [${cat.name}].`);
+              break;
+            }
           }
         } catch (err) {
           console.log(`❌ Error on page ${page}: ${err.message}`);
+          consecutiveEmptyPages++;
+          if (consecutiveEmptyPages >= MAX_CONSECUTIVE_EMPTY) break;
         }
 
         page++;
