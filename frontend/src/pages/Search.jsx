@@ -40,7 +40,7 @@ const Search = () => {
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
-  const urlQuery = (searchParams.get("q") || "").trim();
+  const urlQuery = searchParams.get("q") || "";
   const [debouncedQuery, setDebouncedQuery] = useState(urlQuery);
 
   const [searchResults, setSearchResults] = useState(() => {
@@ -242,6 +242,7 @@ const Search = () => {
               const val = e.target.value;
               setSearchParams(val.trim() ? { q: val } : {}, { replace: true });
             }}
+
             placeholder="Search songs, artists, languages…"
             aria-label="Search"
             className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none"
