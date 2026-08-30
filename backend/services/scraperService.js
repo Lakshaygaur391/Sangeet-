@@ -308,8 +308,9 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
 
   const pageUrl = pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/+$/, "")}/page/${pageNum}/`;
   const MAX_SONGS_PER_SCRAPE = 50;
-  // Hard cap — pagalworld has up to ~300 pages per category
-  const HARD_MAX_PAGES = 300;
+  // Hard cap — set well above the real maximum to never be the limiting factor.
+  // Real stop condition is 3 consecutive empty pages (see populate script).
+  const HARD_MAX_PAGES = 500;
   let maxPages = HARD_MAX_PAGES;
 
   // ── Step 1: Category listing → collect album links ────────────────────────
@@ -446,6 +447,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
 
   // ── Step 5: Fast Bulk Upsert to MongoDB (Single Roundtrip) ────────────────
   const savedSongs = [];
+  let trueNewCount = 0; // Only counts genuinely inserted docs, not updates
   try {
     const bulkOps = extractedSongs.map((song) => {
       const finalAlbum = (song.album && song.album !== "Single") ? song.album : inferAlbum(song);
@@ -471,7 +473,9 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     });
 
     if (bulkOps.length > 0) {
-      await Song.bulkWrite(bulkOps, { ordered: false });
+      // bulkResult.upsertedCount = truly NEW docs inserted (not existing ones updated)
+      const bulkResult = await Song.bulkWrite(bulkOps, { ordered: false });
+      trueNewCount = bulkResult.upsertedCount || 0;
     }
 
     // Retrieve saved documents
@@ -481,6 +485,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     savedSongs.push(...savedDocs);
   } catch {
     savedSongs.push(...extractedSongs);
+    trueNewCount = extractedSongs.length;
   }
 
   // ── Step 6: Append to songs.json Asynchronously ───────────────────────────
@@ -510,7 +515,7 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     page: pageNum,
     maxPages,
     songs: savedSongs,
-    newCount: savedSongs.length,
+    newCount: trueNewCount, // Accurate: only genuinely NEW inserts, not updates
     hasMore: pageNum < maxPages,
   };
 }
