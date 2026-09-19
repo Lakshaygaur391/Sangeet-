@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   IoSearchOutline,
   IoClose,
@@ -21,12 +22,12 @@ const SORT_OPTIONS = [
 ];
 
 /** Generic dropdown component */
-const FilterDropdown = ({ icon: Icon, label, value, isActive, open, onToggle, children }) => (
+const FilterDropdown = ({ icon: Icon, label, value, isActive, open, onToggle, children, align = "right" }) => (
   <div className="relative">
     <button
       type="button"
       onClick={onToggle}
-      className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-150 ${
+      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
         isActive
           ? "border-amber-400/50 bg-amber-400/10 text-amber-200 shadow-sm shadow-amber-400/10"
           : "border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20"
@@ -40,7 +41,7 @@ const FilterDropdown = ({ icon: Icon, label, value, isActive, open, onToggle, ch
     </button>
 
     {open && (
-      <div className="animate-scale-in absolute left-0 top-10 z-40 max-h-60 min-w-[160px] overflow-y-auto rounded-xl border border-white/10 bg-[#1c1c1e] py-1.5 shadow-2xl shadow-black/80 backdrop-blur-xl">
+      <div className={`animate-scale-in absolute ${align === "right" ? "right-0" : "left-0"} top-9 z-40 max-h-60 min-w-[160px] overflow-y-auto rounded-xl border border-white/10 bg-[#1c1c1e] py-1.5 shadow-2xl shadow-black/80 backdrop-blur-xl`}>
         {children}
       </div>
     )}
@@ -251,53 +252,69 @@ const PlaylistFilters = ({
 
   return (
     <div className="space-y-2.5 animate-fade-in">
-      {/* ── Search bar + desktop filters ── */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-        {/* Search input */}
-        <div className="relative flex-1 min-w-0">
-          <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141415] px-3.5 py-2.5 text-sm transition-all duration-150 focus-within:border-amber-400/40 focus-within:ring-1 focus-within:ring-amber-400/15 focus-within:bg-[#171719]">
-            <IoSearchOutline className="text-base text-white/35 shrink-0" />
+      {/* ── Compact & Responsive Toolbar ── */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        {/* Search input: compact width with subtle glow and smooth focus transition */}
+        <div className="relative w-full sm:w-64 md:w-72 lg:w-80">
+          <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141416]/90 px-3 py-2 text-xs transition-all duration-200 focus-within:border-amber-400/50 focus-within:ring-1 focus-within:ring-amber-400/20 focus-within:bg-[#18181b]">
+            <IoSearchOutline className="text-sm text-white/40 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search in this playlist…"
-              className="w-full bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none"
+              className="w-full bg-transparent text-xs text-white placeholder:text-white/35 focus:outline-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear search"
                 onClick={() => onSearchChange("")}
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white/40 hover:bg-white/20 hover:text-white transition-colors shrink-0"
+                className="flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-white/40 hover:bg-white/20 hover:text-white transition-colors shrink-0"
               >
-                <IoClose className="text-[11px]" />
+                <IoClose className="text-[10px]" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Desktop: full dropdowns */}
-        <div className="hidden sm:flex">{desktopFilters}</div>
+        {/* Right side: Song Count + Filters Toolbar */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 flex-wrap">
+          {/* Song count badge */}
+          <span className="text-xs text-white/45 font-medium">
+            {hasActiveFilters ? (
+              <>
+                <strong className="text-white font-semibold">{filteredCount}</strong> of {totalCount} songs
+              </>
+            ) : (
+              `${totalCount} ${totalCount === 1 ? "song" : "songs"}`
+            )}
+          </span>
 
-        {/* Mobile: compact filter button */}
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className={`flex sm:hidden items-center gap-1.5 self-start rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all ${
-            activeFilterCount > 0
-              ? "border-amber-400/40 bg-amber-400/10 text-amber-200"
-              : "border-white/10 bg-white/[0.04] text-white/60"
-          }`}
-        >
-          <IoFilterOutline className="text-sm" />
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-black">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
+          {/* Desktop dropdowns */}
+          <div className="hidden sm:flex items-center gap-2">
+            {desktopFilters}
+          </div>
+
+          {/* Mobile: compact filter button */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className={`flex sm:hidden items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+              activeFilterCount > 0
+                ? "border-amber-400/40 bg-amber-400/10 text-amber-200"
+                : "border-white/10 bg-white/[0.04] text-white/60"
+            }`}
+          >
+            <IoFilterOutline className="text-xs" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-black">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ── Active filter chips row ── */}
@@ -337,136 +354,144 @@ const PlaylistFilters = ({
         </div>
       )}
 
-      {/* ── Result count ── */}
-      <div className="flex items-center gap-2 px-0.5">
-        <span className="text-xs text-white/40">
-          {hasActiveFilters ? (
-            <>
-              Showing <strong className="text-white/70 font-semibold">{filteredCount}</strong>{" "}
-              of <span className="text-white/55">{totalCount}</span> songs
-            </>
-          ) : (
-            <span className="text-white/35">{totalCount} {totalCount === 1 ? "song" : "songs"}</span>
-          )}
-        </span>
-      </div>
-
-      {/* ══ Mobile Bottom Sheet ══ */}
-      {mobileOpen && (
-        <>
-          {/* Overlay */}
-          <div
-            className="bottom-sheet-overlay animate-fade-in"
-            onClick={() => setMobileOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Panel */}
-          <div className="bottom-sheet-panel animate-bottom-sheet-in" role="dialog" aria-label="Filter options">
-            <div className="bottom-sheet-handle" />
-
-            <div className="flex items-center justify-between mb-5 px-1">
-              <h3 className="text-sm font-bold text-white">Filters & Sort</h3>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={() => { onClearAll(); setMobileOpen(false); }}
-                  className="text-xs font-semibold text-rose-300 hover:text-rose-200 transition-colors"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            {/* Language section */}
-            {availableLanguages.length > 1 && (
-              <div className="mb-5">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-white/35">
-                  Language
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["all", ...availableLanguages].map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() => onLanguageChange(lang)}
-                      className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                        (lang === "all" && (selectedLanguage === "all" || !selectedLanguage))
-                        || selectedLanguage === lang
-                          ? "border-amber-400/50 bg-amber-400/15 text-amber-200"
-                          : "border-white/10 bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
-                      }`}
-                    >
-                      {lang === "all" ? "All" : lang}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Year section */}
-            {availableYears.length > 1 && (
-              <div className="mb-5">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-white/35">
-                  Year
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["all", ...availableYears].map((yr) => (
-                    <button
-                      key={yr}
-                      type="button"
-                      onClick={() => onYearChange(String(yr))}
-                      className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                        (yr === "all" && (selectedYear === "all" || !selectedYear))
-                        || String(selectedYear) === String(yr)
-                          ? "border-amber-400/50 bg-amber-400/15 text-amber-200"
-                          : "border-white/10 bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
-                      }`}
-                    >
-                      {yr === "all" ? "All Years" : yr}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Sort section */}
-            <div className="mb-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-white/35">
-                Sort by
-              </p>
-              <div className="space-y-1">
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => onSortChange(opt.key)}
-                    className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm transition-all ${
-                      selectedSort === opt.key
-                        ? "bg-amber-400/10 text-amber-200 border border-amber-400/25"
-                        : "text-white/65 hover:bg-white/[0.06] hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <span>{opt.label}</span>
-                    {selectedSort === opt.key && (
-                      <IoCheckmark className="text-amber-400" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Done button */}
-            <button
-              type="button"
+      {/* ══ Mobile Bottom Sheet via Portal ══ */}
+      {mobileOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex flex-col justify-end">
+            {/* Fullscreen Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-fade-in"
               onClick={() => setMobileOpen(false)}
-              className="w-full rounded-full bg-gradient-to-br from-amber-300 to-amber-500 py-3 text-sm font-bold text-black shadow-lg transition hover:scale-[1.02] active:scale-95"
+              aria-hidden="true"
+            />
+
+            {/* Bottom Sheet Panel */}
+            <div
+              className="relative z-10 w-full max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/15 bg-[#141416] p-5 pb-8 shadow-[0_-20px_60px_rgba(0,0,0,0.9)] animate-bottom-sheet-in"
+              role="dialog"
+              aria-label="Filter options"
+              onClick={(e) => e.stopPropagation()}
             >
-              Done
-            </button>
-          </div>
-        </>
-      )}
+              {/* Handle */}
+              <div className="mx-auto -mt-1 mb-4 h-1 w-10 rounded-full bg-white/20" />
+
+              <div className="flex items-center justify-between mb-5 px-1">
+                <h3 className="text-base font-bold text-white">Filters & Sort</h3>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClearAll();
+                        setMobileOpen(false);
+                      }}
+                      className="text-xs font-semibold text-rose-300 hover:text-rose-200 transition-colors mr-1"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white"
+                  >
+                    <IoClose className="text-base" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Language section */}
+              {availableLanguages.length > 1 && (
+                <div className="mb-5">
+                  <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                    Language
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["all", ...availableLanguages].map((lang) => (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => onLanguageChange(lang)}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                          (lang === "all" && (!selectedLanguage || selectedLanguage === "all")) ||
+                          selectedLanguage === lang
+                            ? "border-amber-400/50 bg-amber-400/15 text-amber-200 font-bold"
+                            : "border-white/10 bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
+                        }`}
+                      >
+                        {lang === "all" ? "All Languages" : lang}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Year section */}
+              {availableYears.length > 1 && (
+                <div className="mb-5">
+                  <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                    Release Year
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["all", ...availableYears].map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        onClick={() => onYearChange(String(yr))}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                          (yr === "all" && (!selectedYear || selectedYear === "all")) ||
+                          String(selectedYear) === String(yr)
+                            ? "border-amber-400/50 bg-amber-400/15 text-amber-200 font-bold"
+                            : "border-white/10 bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
+                        }`}
+                      >
+                        {yr === "all" ? "All Years" : yr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sort section */}
+              <div className="mb-6">
+                <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                  Sort By
+                </p>
+                <div className="space-y-1">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => onSortChange(opt.key)}
+                      className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
+                        selectedSort === opt.key
+                          ? "bg-amber-400/15 text-amber-300 border border-amber-400/30"
+                          : "text-white/70 hover:bg-white/[0.06] hover:text-white border border-transparent"
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {selectedSort === opt.key && (
+                        <IoCheckmark className="text-amber-400 text-base" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Done button */}
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="w-full rounded-full bg-gradient-to-br from-amber-300 to-amber-500 py-3 text-sm font-bold text-black shadow-lg shadow-amber-500/25 transition hover:scale-[1.01] active:scale-98"
+              >
+                Done
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

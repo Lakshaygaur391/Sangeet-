@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { IoIosSearch } from "react-icons/io";
 import { IoClose, IoTimeOutline, IoTrashOutline } from "react-icons/io5";
 import SongCard from "../components/song/SongCard";
 import ArtistCard from "../components/artist/ArtistCard";
@@ -153,24 +152,26 @@ const Search = () => {
     return Array.from(map.values());
   }, [catalog]);
 
+  const effectiveQuery = searchQuery.trim();
+
   const artistResults = useMemo(() => {
-    if (!debouncedQuery) return [];
-    const q = debouncedQuery.toLowerCase();
+    if (!effectiveQuery) return [];
+    const q = effectiveQuery.toLowerCase();
     return artistIndex
       .filter((a) => a.name.toLowerCase().includes(q))
       .slice(0, 8);
-  }, [artistIndex, debouncedQuery]);
+  }, [artistIndex, effectiveQuery]);
 
-  // Fast single-pass scored catalog search
+  // Fast 0ms instant single-pass scored catalog search
   const songResults = useMemo(() => {
-    if (!debouncedQuery) return [];
+    if (!effectiveQuery) return [];
     const seen = new Set();
     const list = [];
 
     const scored = [];
     for (let i = 0; i < catalog.length; i++) {
       const s = catalog[i];
-      const score = scoreSongMatch(s, debouncedQuery);
+      const score = scoreSongMatch(s, effectiveQuery);
       if (score > 0) {
         scored.push({ s, score });
       }
@@ -196,15 +197,15 @@ const Search = () => {
     }
 
     return list;
-  }, [catalog, apiSearchResults, debouncedQuery]);
+  }, [catalog, apiSearchResults, effectiveQuery]);
 
   const languageResults = useMemo(() => {
-    if (!debouncedQuery) return [];
-    const q = debouncedQuery.toLowerCase();
+    if (!effectiveQuery) return [];
+    const q = effectiveQuery.toLowerCase();
     return LANGUAGES.filter((l) => l.toLowerCase().includes(q));
-  }, [debouncedQuery]);
+  }, [effectiveQuery]);
 
-  const hasQuery = Boolean(debouncedQuery);
+  const hasQuery = Boolean(effectiveQuery);
   const hasResults =
     songResults.length > 0 ||
     artistResults.length > 0 ||
@@ -212,32 +213,6 @@ const Search = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search bar */}
-      <div className="relative">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#141415] px-4 py-3.5 shadow-lg shadow-black/20 transition-all duration-200 focus-within:border-amber-400/40 focus-within:shadow-amber-400/10 focus-within:ring-1 focus-within:ring-amber-400/20">
-          <IoIosSearch className="shrink-0 text-xl text-white/45" />
-          <input
-            autoFocus
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search songs, artists, languages…"
-            aria-label="Search"
-            className="min-w-0 flex-1 bg-transparent text-white placeholder:text-white/35 focus:outline-none"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setSearchQuery("")}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/15 hover:text-white"
-            >
-              <IoClose className="text-sm" />
-            </button>
-          )}
-        </div>
-      </div>
-
       {!hasQuery && (
         <div>
           <div className="mb-3 flex items-center justify-between">

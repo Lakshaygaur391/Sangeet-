@@ -7,7 +7,7 @@ import { useLibrary } from "../../context/LibraryContext";
 // <Player /> (rendered but visually hidden below md), this just reflects
 // and controls the shared PlayerContext state.
 const MiniPlayer = () => {
-  const { currentSong, isPlaying, setIsPlaying, playNext, setIsNowPlayingOpen, currentTime, duration } = usePlayer();
+  const { currentSong, isPlaying, togglePlay, playNext, setIsNowPlayingOpen, currentTime, duration } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
 
   if (!currentSong) return null;
@@ -15,11 +15,11 @@ const MiniPlayer = () => {
   const progressPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <div className="fixed inset-x-2 bottom-[64px] z-40 overflow-hidden rounded-2xl border border-white/10 bg-[#141415]/97 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:hidden">
+    <div className="fixed inset-x-2.5 bottom-[70px] z-40 overflow-hidden rounded-2xl border border-white/12 bg-[#101013]/96 shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur-3xl md:hidden">
       {/* Progress bar at top */}
       <div className="h-0.5 w-full bg-white/10">
         <div
-          className="h-full bg-amber-400 transition-all duration-1000"
+          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] transition-all duration-300"
           style={{ width: `${progressPct}%` }}
         />
       </div>
@@ -28,11 +28,14 @@ const MiniPlayer = () => {
         type="button"
         onClick={() => setIsNowPlayingOpen(true)}
         aria-label="Open Now Playing"
-        className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+        className="flex w-full items-center gap-3 px-3 py-2 text-left"
       >
         <img
           src={currentSong.thumbnail_url}
           alt=""
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
           className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-md"
         />
         <div className="min-w-0 flex-1">
@@ -61,7 +64,7 @@ const MiniPlayer = () => {
           aria-label={isPlaying ? "Pause" : "Play"}
           onClick={(e) => {
             e.stopPropagation();
-            setIsPlaying(!isPlaying);
+            togglePlay();
           }}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-md shadow-amber-500/30"
         >

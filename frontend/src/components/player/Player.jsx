@@ -22,6 +22,7 @@ const Player = () => {
     currentSong,
     isPlaying,
     setIsPlaying,
+    togglePlay,
     playNext,
     playPrevious,
     onTrackEnd,
@@ -146,7 +147,7 @@ const Player = () => {
       />
 
       {/* Desktop Transport Bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[90px] items-center gap-4 border-t border-white/[0.07] bg-[#0c0c0d]/96 px-4 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:flex md:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-40 hidden h-[92px] items-center gap-4 border-t border-white/[0.09] bg-[#09090c]/95 px-4 shadow-[0_-16px_50px_rgba(0,0,0,0.7)] backdrop-blur-3xl md:flex md:px-6">
 
         {/* Left: Now playing thumbnail & title */}
         <button
@@ -159,11 +160,14 @@ const Player = () => {
             <img
               src={currentSong.thumbnail_url}
               alt=""
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
               className="h-14 w-14 rounded-xl object-cover shadow-lg shadow-black/50 transition-transform duration-300 group-hover:scale-105"
             />
             {/* Active glow ring */}
             {isPlaying && (
-              <span className="absolute -inset-0.5 rounded-[14px] bg-amber-400/20 animate-pulse" />
+              <span className="absolute -inset-1 rounded-[16px] bg-gradient-to-r from-amber-400/30 to-amber-600/30 blur-sm animate-pulse -z-10" />
             )}
           </div>
           <div className="min-w-0">
@@ -213,7 +217,7 @@ const Player = () => {
             <button
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={togglePlay}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/30 transition-all duration-200 hover:scale-105 hover:shadow-amber-500/40 active:scale-95"
             >
               {isPlaying ? <IoPause className="text-[1.2rem]" /> : <IoPlay className="translate-x-0.5 text-[1.2rem]" />}

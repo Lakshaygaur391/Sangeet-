@@ -7,12 +7,12 @@ import {
   IoTrashOutline,
   IoMusicalNotesOutline,
   IoAlbumsOutline,
-  IoSparkles,
   IoSearchOutline,
   IoClose,
   IoCalendarOutline,
   IoPlay,
   IoShuffle,
+  IoDiscOutline,
 } from "react-icons/io5";
 import SongRow from "../components/song/SongRow";
 import ArtistCard from "../components/artist/ArtistCard";
@@ -27,7 +27,6 @@ const MAIN_TABS = [
   { key: "recent", label: "Recently Played" },
   { key: "playlists", label: "Your Playlists" },
   { key: "yearly", label: "Yearly Music" },
-  { key: "songs", label: "Liked Songs" },
   { key: "artists", label: "Artists" },
   { key: "albums", label: "Albums" },
 ];
@@ -102,8 +101,6 @@ const Library = () => {
     );
   }, [playlists, playlistSearch]);
 
-  const [selectedEra, setSelectedEra] = useState("all"); // 'all' | '2020s' | '2010s' | '2000s'
-
   // Filtered yearly playlists
   const filteredYearlyPlaylists = useMemo(() => {
     const q = playlistSearch.trim().toLowerCase();
@@ -114,27 +111,6 @@ const Library = () => {
         (p.description || "").toLowerCase().includes(q)
     );
   }, [yearlyPlaylists, playlistSearch]);
-
-  const eraFilteredYearlyPlaylists = useMemo(() => {
-    let list = filteredYearlyPlaylists;
-    if (selectedEra === "2020s") {
-      list = list.filter((p) => {
-        const y = parseInt(p.year || p.name, 10);
-        return y >= 2020 && y <= 2029;
-      });
-    } else if (selectedEra === "2010s") {
-      list = list.filter((p) => {
-        const y = parseInt(p.year || p.name, 10);
-        return y >= 2010 && y <= 2019;
-      });
-    } else if (selectedEra === "2000s") {
-      list = list.filter((p) => {
-        const y = parseInt(p.year || p.name, 10);
-        return y >= 2000 && y <= 2009;
-      });
-    }
-    return list;
-  }, [filteredYearlyPlaylists, selectedEra]);
 
   // Recently updated user playlists (sorted by updatedAt or createdAt)
   const recentlyUpdatedPlaylists = useMemo(() => {
@@ -476,18 +452,18 @@ const Library = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 sm:gap-3">
               {/* Create Playlist Action Card */}
               <button
                 type="button"
                 onClick={() => outletCtx?.openCreatePlaylist?.()}
-                className="group flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/40 hover:bg-white/[0.05]"
+                className="group flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3.5 sm:p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:border-amber-400/40 hover:bg-white/[0.05]"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/10 text-amber-400 mb-3 transition group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black">
-                  <IoAddCircleOutline className="text-2xl" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/10 text-amber-400 mb-2 transition group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black">
+                  <IoAddCircleOutline className="text-xl" />
                 </div>
-                <p className="text-sm font-bold text-white">Create Playlist</p>
-                <p className="text-[11px] text-white/40 mt-1">Custom mix</p>
+                <p className="text-xs sm:text-sm font-bold text-white">Create Playlist</p>
+                <p className="text-[10px] sm:text-[11px] text-white/40 mt-0.5">Custom mix</p>
               </button>
 
               {/* User Playlists Cards */}
@@ -505,9 +481,6 @@ const Library = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-h2 text-white">Recently Played</h2>
-              <span className="flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                History
-              </span>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -562,59 +535,23 @@ const Library = () => {
       {(tab === "all" || tab === "yearly") && yearlyPlaylists.length > 0 && (
         <section className="space-y-4 rounded-3xl border border-white/[0.07] bg-[#0f0f12]/70 p-5 shadow-xl backdrop-blur-md">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-400 border border-amber-400/30 shadow-md shadow-amber-400/10">
+                <IoDiscOutline className="text-2xl animate-[spin_12s_linear_infinite]" />
+              </span>
+              <div>
                 <h2 className="text-h2 font-black text-white">Yearly Rewind</h2>
-                {/* <span className="flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                  <IoSparkles className="text-[10px]" /> Smart Collections
-                </span> */}
+                <p className="text-caption mt-0.5 text-white/50">
+                  Top 7 essential hits for each release year with continuous playback.
+                </p>
               </div>
-              <p className="text-caption mt-1 text-white/50">
-                Curated music playlists automatically organized by release year ({yearlyPlaylists.length} Years).
-              </p>
             </div>
 
-            {/* Era Filter Tabs */}
-            <div className="flex shrink-0 items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
-              {[
-                { key: "all", label: "All Years" },
-                { key: "2020s", label: "2020s" },
-                { key: "2010s", label: "2010s" },
-                { key: "2000s", label: "2000s" },
-              ].map((era) => (
-                <button
-                  key={era.key}
-                  type="button"
-                  onClick={() => setSelectedEra(era.key)}
-                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-200 ${
-                    selectedEra === era.key
-                      ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
-                      : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-                  }`}
-                >
-                  {era.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Clean Single-Row Horizontal Quick Jump Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {eraFilteredYearlyPlaylists.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => navigate(`/playlist/${p.id}`)}
-                className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/[0.05] px-3.5 py-1 text-xs font-bold text-amber-200/90 shadow-sm transition hover:border-amber-400/40 hover:bg-amber-400/15 hover:text-amber-100 active:scale-95"
-              >
-                {p.name}
-              </button>
-            ))}
           </div>
 
           {/* Playlist Cards Grid */}
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-            {eraFilteredYearlyPlaylists.map((p) => (
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 sm:gap-3">
+            {filteredYearlyPlaylists.map((p) => (
               <PlaylistCard key={p.id} playlist={p} />
             ))}
           </div>
@@ -627,7 +564,7 @@ const Library = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-h2 text-white">Recently Updated</h2>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 sm:gap-3">
             {recentlyUpdatedPlaylists.map((p) => (
               <PlaylistCard key={`rec-${p.id || p._id}`} playlist={p} />
             ))}
@@ -635,39 +572,7 @@ const Library = () => {
         </section>
       )}
 
-      {/* ── Section: Liked Songs Preview ── */}
-      {(tab === "all" || tab === "songs") && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-h2 text-white">Liked Songs</h2>
-            {likedSongs.length > 5 && (
-              <button
-                type="button"
-                onClick={() => navigate("/library/liked")}
-                className="text-xs font-semibold text-amber-400 hover:text-amber-300"
-              >
-                See all ({likedSongs.length})
-              </button>
-            )}
-          </div>
 
-          {likedSongs.length === 0 ? (
-            <EmptyState
-              icon={<IoHeart />}
-              title="No liked songs"
-              description="Heart songs anywhere in Sangeet to save them here."
-            />
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#101011]">
-              <div className="divide-y divide-white/[0.03]">
-                {likedSongs.slice(0, tab === "songs" ? undefined : 6).map((song, i) => (
-                  <SongRow key={song._id || i} song={song} queue={likedSongs} index={i} showIndex />
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* ── Section: Artists ── */}
       {tab === "artists" && (

@@ -6,6 +6,7 @@ import { useLibrary } from "../../context/LibraryContext";
 import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { normalizeSong, songId, formatTime } from "../../lib/media";
+import MediaOptionsMenu from "../ui/MediaOptionsMenu";
 
 // Compact row used in playlist tracklists, Library, Queue, Artist popular tracks.
 const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist }) => {
@@ -15,6 +16,7 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const menuRef = useRef(null);
 
   const isActive = currentSong && songId(currentSong) === songId(song);
@@ -27,21 +29,9 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
       setIsPlaying(!isPlaying);
       return;
     }
-    if (!isAuthenticated) {
-      openAuthPrompt("default");
-      return;
-    }
     playSong(song, queue, index);
   };
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e) => {
-      if (!menuRef.current?.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
 
   return (
     <div
@@ -88,13 +78,20 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
 
       {/* Artwork + title + artist */}
       <button type="button" onClick={handlePlay} className="flex min-w-0 items-center gap-3 text-left">
-        <img
-          src={song.thumbnail_url}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className={`h-10 w-10 shrink-0 rounded-lg object-cover shadow-sm transition-transform group-hover:scale-105 ${unavailable ? "grayscale" : ""}`}
-        />
+        {!imgError && song.thumbnail_url ? (
+          <img
+            src={song.thumbnail_url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setImgError(true)}
+            className={`h-10 w-10 shrink-0 rounded-lg object-cover shadow-sm transition-transform group-hover:scale-105 ${unavailable ? "grayscale" : ""}`}
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-xs font-bold text-amber-400">
+            ♪
+          </div>
+        )}
         <div className="min-w-0">
           <p
             className={`truncate text-sm font-semibold leading-snug sm:text-[0.9rem] ${isActive ? "text-amber-300" : "text-white"}`}
@@ -135,40 +132,37 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
         </button>
 
         {/* More menu */}
-        {(onMenu || onAddToPlaylist) && (
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              aria-label="More options"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => {
-                if (onMenu) { onMenu(song); return; }
-                setMenuOpen((v) => !v);
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white/40 transition hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
-            >
-              <IoEllipsisHorizontal />
-            </button>
-            {menuOpen && !onMenu && (
-              <div
-                role="menu"
-                className="animate-scale-in absolute right-0 top-9 z-30 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1c] py-1.5 shadow-2xl shadow-black/60 backdrop-blur-lg"
-              >
-                {onAddToPlaylist && (
-                  <button
-                    role="menuitem"
-                    type="button"
-                    onClick={() => { setMenuOpen(false); onAddToPlaylist(song); }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-white/80 hover:bg-white/[0.06] hover:text-white"
-                  >
-                    <IoAddCircleOutline className="text-amber-400" /> Add to playlist
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            aria-label="More options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onMenu) {
+                onMenu(song);
+                return;
+              }
+              setMenuOpen((v) => !v);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white/40 transition hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <IoEllipsisHorizontal />
+          </button>
+
+          <MediaOptionsMenu
+            isOpen={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            song={song}
+            queue={queue}
+            index={index}
+            onAddToPlaylist={onAddToPlaylist}
+            align="right"
+            position="bottom"
+            itemType="song"
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, memo } from "react";
 import {
   IoChevronDown,
   IoPlay,
@@ -13,11 +13,40 @@ import {
   IoVolumeMute,
 } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
-import { usePlayer } from "../../context/PlayerContext";
+import { usePlayer, usePlaybackProgress } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
 import { useUI } from "../../context/UIContext";
 import { formatTime, normalizeSong, songId } from "../../lib/media";
 import QueuePanel from "./Queue";
+
+// Isolated high-frequency seekbar so parent NowPlaying component never re-renders on playback ticks
+const NowPlayingSeekBar = memo(() => {
+  const { currentTime, duration, progressPct, seekTo } = usePlaybackProgress();
+  return (
+    <div className="space-y-1">
+      <div className="relative flex items-center">
+        <input
+          type="range"
+          min="0"
+          max={duration || 0}
+          value={Math.min(currentTime, duration || 0)}
+          onChange={(e) => seekTo(Number(e.target.value))}
+          aria-label="Seek track"
+          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent"
+          style={{
+            background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
+          }}
+        />
+      </div>
+      <div className="flex justify-between text-[11px] font-medium tabular-nums text-white/40 px-0.5">
+        <span>{formatTime(currentTime)}</span>
+        <span>{formatTime(duration)}</span>
+      </div>
+    </div>
+  );
+});
+
+NowPlayingSeekBar.displayName = "NowPlayingSeekBar";
 
 const NowPlaying = () => {
   const {
@@ -25,7 +54,7 @@ const NowPlaying = () => {
     setIsNowPlayingOpen,
     currentSong,
     isPlaying,
-    setIsPlaying,
+    togglePlay,
     playNext,
     playPrevious,
     shuffle,
@@ -33,14 +62,14 @@ const NowPlaying = () => {
     repeatMode,
     cycleRepeat,
     setIsQueueOpen,
-    currentTime,
-    duration,
-    seekTo,
     songList,
     setSongList,
     playSong,
     volume,
     setVolume,
+    seekTo,
+    currentTime,
+    duration,
   } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { toast } = useUI();
@@ -59,7 +88,7 @@ const NowPlaying = () => {
         setIsNowPlayingOpen(false);
       } else if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        setIsPlaying(!isPlaying);
+        togglePlay();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         seekTo(Math.min(duration, currentTime + 5));
@@ -75,20 +104,43 @@ const NowPlaying = () => {
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = "";
     };
-  }, [isNowPlayingOpen, setIsNowPlayingOpen, isPlaying, setIsPlaying, currentTime, duration, seekTo]);
+  }, [isNowPlayingOpen, setIsNowPlayingOpen, togglePlay, currentTime, duration, seekTo]);
 
-  // Real "you might also like" — same artist first, then same language
+  // Ultra-fast "you might also like" scanner with early exit (never iterates 3000+ items repeatedly)
   const related = useMemo(() => {
     if (!currentSong || !songList.length) return [];
-    const pool = songList.map(normalizeSong).filter((s) => songId(s) !== songId(currentSong));
-    const sameArtist = pool.filter((s) => s.artist === currentSong.artist);
-    const sameLanguage = pool.filter(
-      (s) => s.language && s.language === currentSong.language && s.artist !== currentSong.artist
-    );
-    const rest = pool.filter(
-      (s) => s.artist !== currentSong.artist && s.language !== currentSong.language
-    );
-    return [...sameArtist, ...sameLanguage, ...rest].slice(0, 16);
+    const targetArtist = currentSong.artist;
+    const targetLang = currentSong.language;
+    const currId = songId(currentSong);
+    const results = [];
+    const max = 16;
+
+    // Pass 1: same artist
+    for (let i = 0; i < songList.length && results.length < max; i++) {
+      const s = normalizeSong(songList[i]);
+      if (songId(s) !== currId && s.artist === targetArtist) {
+        results.push(s);
+      }
+    }
+    // Pass 2: same language
+    if (results.length < max && targetLang) {
+      for (let i = 0; i < songList.length && results.length < max; i++) {
+        const s = normalizeSong(songList[i]);
+        if (songId(s) !== currId && s.language === targetLang && !results.some((r) => songId(r) === songId(s))) {
+          results.push(s);
+        }
+      }
+    }
+    // Pass 3: general fill
+    if (results.length < max) {
+      for (let i = 0; i < songList.length && results.length < max; i++) {
+        const s = normalizeSong(songList[i]);
+        if (songId(s) !== currId && !results.some((r) => songId(r) === songId(s))) {
+          results.push(s);
+        }
+      }
+    }
+    return results;
   }, [currentSong, songList]);
 
   const addRelatedToQueue = (song) => {
@@ -105,23 +157,31 @@ const NowPlaying = () => {
     }
   };
 
-  if (!currentSong) return null;
+  useEffect(() => {
+    if (!isNowPlayingOpen && document.activeElement) {
+      const isInside = document.activeElement.closest?.('[data-now-playing="true"]');
+      if (isInside) {
+        document.activeElement.blur?.();
+      }
+    }
+  }, [isNowPlayingOpen]);
 
-  const progressPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+  if (!currentSong) return null;
 
   return (
     <div
-      aria-hidden={!isNowPlayingOpen}
-      className={`fixed inset-0 z-[85] flex flex-col justify-between overflow-y-auto bg-[#070709] text-white select-none lg:overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu will-change-transform ${
+      data-now-playing="true"
+      inert={!isNowPlayingOpen}
+      className={`fixed inset-0 z-[85] flex flex-col justify-between overflow-y-auto bg-[#070709] text-white select-none lg:overflow-hidden transition-opacity duration-150 ease-out transition-transform duration-150 ease-out transform-gpu will-change-transform ${
         isNowPlayingOpen
           ? "opacity-100 translate-y-0 pointer-events-auto visible"
-          : "opacity-0 translate-y-8 pointer-events-none invisible"
+          : "opacity-0 translate-y-4 pointer-events-none invisible"
       }`}
     >
       {/* ── Ambient Fluid Background (Hardware-accelerated) ── */}
       <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
         <div
-          className="h-full w-full scale-110 transform-gpu transition-all duration-500 will-change-transform"
+          className="h-full w-full scale-110 transform-gpu will-change-transform"
           style={{
             backgroundImage: `url(${currentSong.thumbnail_url})`,
             backgroundSize: "cover",
@@ -242,27 +302,8 @@ const NowPlaying = () => {
             </button>
           </div>
 
-          {/* Progress / Seekbar */}
-          <div className="space-y-1">
-            <div className="relative flex items-center">
-              <input
-                type="range"
-                min="0"
-                max={duration || 0}
-                value={Math.min(currentTime, duration || 0)}
-                onChange={(e) => seekTo(Number(e.target.value))}
-                aria-label="Seek track"
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent"
-                style={{
-                  background: `linear-gradient(to right, #eab34a ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
-                }}
-              />
-            </div>
-            <div className="flex justify-between text-[11px] font-medium tabular-nums text-white/40 px-0.5">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
+          {/* Progress / Seekbar (Isolated) */}
+          <NowPlayingSeekBar />
 
           {/* Transport Controls (Play/Pause/Skip/Shuffle) */}
           <div className="mt-3 flex items-center justify-center gap-3 sm:gap-6 text-xl sm:text-2xl">
@@ -292,8 +333,8 @@ const NowPlaying = () => {
             <button
               type="button"
               aria-label={isPlaying ? "Pause" : "Play"}
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="relative flex h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 aspect-square sm:h-16 sm:w-16 sm:min-h-[64px] sm:min-w-[64px] sm:max-h-[64px] sm:max-w-[64px] items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-black shadow-[0_8px_30px_rgba(234,179,74,0.45)] transition-all duration-200 hover:scale-105 hover:shadow-[0_12px_40px_rgba(234,179,74,0.6)] active:scale-95"
+              onClick={togglePlay}
+              className="relative flex h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 aspect-square sm:h-16 sm:w-16 sm:min-h-[64px] sm:min-w-[64px] sm:max-h-[64px] sm:max-w-[64px] items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-black shadow-[0_8px_30px_rgba(234,179,74,0.45)] transition-all duration-150 hover:scale-105 hover:shadow-[0_12px_40px_rgba(234,179,74,0.6)] active:scale-95"
               title="Play / Pause (Space)"
             >
               {isPlaying ? (
