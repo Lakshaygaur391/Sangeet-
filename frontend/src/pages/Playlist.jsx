@@ -163,34 +163,33 @@ const Playlist = () => {
             let name = "";
             let description = "";
 
-            const yearNum = (s) => { const y = parseInt(s?.year || "", 10); return isNaN(y) ? 0 : y; };
             if (rawKey === "fresh" || rawKey === "new-releases") {
               name = "Fresh on Sangeet";
-              description = "The top 100 freshest drops and newly released songs, handpicked for you.";
-              curatedSongs = (allSongs || []).sort((a, b) => yearNum(b) - yearNum(a)).slice(0, 100);
+              description = "The top 20 freshest drops and newly released songs, handpicked for you.";
+              curatedSongs = (allSongs || []).slice(0, 20);
             } else if (rawKey === "trending" || rawKey === "trending-in-india") {
               name = "Trending in India";
-              description = "The top 100 hottest tracks setting the charts on fire across India right now.";
-              curatedSongs = (allSongs || []).sort((a, b) => yearNum(b) - yearNum(a)).slice(0, 100);
+              description = "The top 20 hottest tracks setting the charts on fire across India right now.";
+              curatedSongs = [...(allSongs || [])].reverse().slice(0, 20);
             } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
               name = "Instagram Viral Song Spotlight";
-              description = "The top 100 viral sounds dominating social feeds and reels.";
+              description = "The top 20 viral sounds dominating social feeds and reels.";
               curatedSongs = (allSongs || []).filter(
                 (s) =>
                   (s.language || "").toLowerCase().includes("instagram") ||
                   (s.language || "").toLowerCase().includes("viral")
               );
               if (curatedSongs.length === 0) curatedSongs = allSongs || [];
-              curatedSongs = curatedSongs.sort((a, b) => yearNum(b) - yearNum(a)).slice(0, 100);
+              curatedSongs = curatedSongs.slice(0, 20);
             } else {
               const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
               name = `${capLang} Spotlight`;
-              description = `The top 100 essential ${capLang} chart-toppers curated by Sangeet.`;
+              description = `The top 20 essential ${capLang} chart-toppers curated by Sangeet.`;
               curatedSongs = (allSongs || []).filter(
                 (s) => (s.language || "").trim().toLowerCase() === rawKey
               );
               if (curatedSongs.length === 0) curatedSongs = allSongs || [];
-              curatedSongs = curatedSongs.sort((a, b) => yearNum(b) - yearNum(a)).slice(0, 100);
+              curatedSongs = curatedSongs.slice(0, 20);
             }
 
             if (curatedSongs.length > 0) {

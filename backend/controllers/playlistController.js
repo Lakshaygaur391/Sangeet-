@@ -377,28 +377,26 @@ export const getCuratedPlaylist = async (typeOrLang) => {
   let songs = [];
 
   const matchQuery = { audio_url: { $exists: true, $ne: "" } };
-  let sortQuery = { year: -1, _id: -1 };
+  let sortQuery = { year: -1 };
 
   if (rawKey === "fresh" || rawKey === "new-releases") {
     name = "Fresh on Sangeet";
-    description = "The top 100 freshest drops and newly released songs, handpicked for you.";
+    description = "The top 20 freshest drops and newly released songs, handpicked for you.";
     sortQuery = { year: -1, _id: -1 };
   } else if (rawKey === "trending" || rawKey === "trending-in-india") {
     name = "Trending in India";
-    description = "The top 100 hottest tracks setting the charts on fire across India right now.";
-    sortQuery = { year: -1, _id: -1 };
+    description = "The top 20 hottest tracks setting the charts on fire across India right now.";
+    sortQuery = { _id: -1 };
   } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
     name = "Instagram Viral Song Spotlight";
-    description = "The top 100 viral sounds dominating social feeds and reels.";
+    description = "The top 20 viral sounds dominating social feeds and reels.";
     matchQuery.language = { $regex: /instagram|viral/i };
-    sortQuery = { year: -1, _id: -1 };
   } else {
     // Language spotlight
     const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
     name = `${capLang} Spotlight`;
-    description = `The top 100 essential ${capLang} chart-toppers curated by Sangeet.`;
+    description = `The top 20 essential ${capLang} chart-toppers curated by Sangeet.`;
     matchQuery.language = new RegExp(`^${rawKey}$`, "i");
-    sortQuery = { year: -1, _id: -1 };
   }
 
   if (mongoose.connection.readyState === 1) {
@@ -406,7 +404,7 @@ export const getCuratedPlaylist = async (typeOrLang) => {
       songs = await Song.find(matchQuery)
         .select(SONG_FIELDS)
         .sort(sortQuery)
-        .limit(150)
+        .limit(60)
         .lean();
     } catch (e) {
       console.warn("Curated playlist query failed:", e.message);
@@ -418,24 +416,23 @@ export const getCuratedPlaylist = async (typeOrLang) => {
     if (rawKey === "fresh" || rawKey === "new-releases") {
       songs = allSongs.slice(0, 100);
     } else if (rawKey === "trending" || rawKey === "trending-in-india") {
-      songs = [...allSongs].sort((a, b) => parseInt(b.year || 0, 10) - parseInt(a.year || 0, 10)).slice(0, 100);
+      songs = [...allSongs].reverse().slice(0, 100);
     } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
       songs = allSongs.filter(
         (s) =>
           (s.language || "").toLowerCase().includes("instagram") ||
           (s.language || "").toLowerCase().includes("viral")
-      ).sort((a, b) => parseInt(b.year || 0, 10) - parseInt(a.year || 0, 10));
-      if (songs.length === 0) songs = allSongs.slice(0, 100);
+      );
+      if (songs.length === 0) songs = allSongs.slice(0, 50);
     } else {
-      songs = allSongs.filter((s) => (s.language || "").trim().toLowerCase() === rawKey)
-        .sort((a, b) => parseInt(b.year || 0, 10) - parseInt(a.year || 0, 10));
+      songs = allSongs.filter((s) => (s.language || "").trim().toLowerCase() === rawKey);
       if (songs.length === 0) {
-        songs = allSongs.slice(0, 100);
+        songs = allSongs.slice(0, 50);
       }
     }
   }
 
-  const deduped = dedupeSongs(songs).slice(0, 100);
+  const deduped = dedupeSongs(songs).slice(0, 20);
   const totalDuration = deduped.reduce((acc, s) => acc + (s.duration || 210), 0);
   const collage = [];
   const seenThumb = new Set();

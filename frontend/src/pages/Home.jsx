@@ -138,37 +138,28 @@ const Home = () => {
 
   // Fresh on Sangeet: Latest Hindi / Bollywood songs year-wise first
   const fresh = useMemo(() => {
-    const list = (feed?.fresh && feed.fresh.length > 0)
-      ? feed.fresh
-      : (feed?.bollywood || []);
+    const list = (feed?.bollywood && feed.bollywood.length > 0)
+      ? feed.bollywood
+      : (feed?.fresh || []);
     return list
       .map(normalizeSong)
+      .filter((s) => (s.language || "").toLowerCase() === "bollywood")
       .sort((a, b) => yearNum(b) - yearNum(a));
   }, [feed]);
 
-  // Trending in India: Latest songs, sorted by year desc
+  // Trending in India: Latest Bollywood songs (2022-2026), sorted by year desc
   const trending = useMemo(() => {
-    const list = (feed?.trending && feed.trending.length > 0)
-      ? feed.trending
-      : (feed?.fresh || []);
+    const list = feed?.trending || [];
     return list
       .map(normalizeSong)
       .sort((a, b) => yearNum(b) - yearNum(a));
   }, [feed]);
 
   const bollywoodSongs = useMemo(() => (feed?.bollywood || []).map(normalizeSong), [feed]);
-  const albumsData = useMemo(() => {
-    const list = feed?.albums || [];
-    return [...list].sort((a, b) => {
-      const ya = parseInt(a?.year || 0, 10);
-      const yb = parseInt(b?.year || 0, 10);
-      return yb - ya;
-    });
-  }, [feed]);
+  const albumsData = useMemo(() => feed?.albums || [], [feed]);
 
-  // Regional language spotlights — sorted latest year first, up to 100 songs each
+  // Regional language spotlights
   const regions = useMemo(() => {
-    const yearNum = (s) => { const y = parseInt(s?.year || "", 10); return isNaN(y) ? 0 : y; };
     const regionalObj = feed?.regional || {};
     return Object.entries(regionalObj)
       .map(([lang, songsList]) => ({
@@ -176,10 +167,7 @@ const Home = () => {
         label: lang === "Instagram viral song" ? "Viral Hits" : lang,
         subtitle: SPOTLIGHT_SUBTITLES[lang] || `Latest ${lang} tracks`,
         slug: lang.toLowerCase().replace(/\s+/g, "-"),
-        songs: (songsList || [])
-          .map(normalizeSong)
-          .sort((a, b) => yearNum(b) - yearNum(a))
-          .slice(0, 100),
+        songs: (songsList || []).map(normalizeSong),
       }))
       .filter((r) => r.songs.length > 0);
   }, [feed]);
@@ -543,7 +531,7 @@ const Home = () => {
           onRetry={() => window.location.reload()}
           id="fresh"
         >
-          {fresh.slice(0, 50).map((song, i) => (
+          {fresh.slice(0, RAIL_PREVIEW_LIMIT).map((song, i) => (
             <div key={songId(song) || i} className="w-40 shrink-0 sm:w-44 md:w-48">
               <SongCard
                 song={song}
@@ -566,7 +554,7 @@ const Home = () => {
           seeAllHref="/playlist/spotlight-trending"
           id="trending"
         >
-          {trending.slice(0, 50).map((song, i) => (
+          {trending.slice(0, RAIL_PREVIEW_LIMIT).map((song, i) => (
             <div key={songId(song) || i} className="relative w-40 shrink-0 sm:w-44 md:w-48">
               <SongCard
                 song={song}
@@ -619,7 +607,7 @@ const Home = () => {
 
           {/* Active Regional Song Rail */}
           <div className="scrollbar-none flex gap-3.5 overflow-x-auto py-1 sm:gap-4">
-            {selectedRegionData.songs.slice(0, 100).map((song, i) => (
+            {selectedRegionData.songs.slice(0, RAIL_PREVIEW_LIMIT).map((song, i) => (
               <div key={songId(song) || i} className="w-40 shrink-0 sm:w-44 md:w-48">
                 <SongCard
                   song={song}
@@ -636,7 +624,7 @@ const Home = () => {
       {/* ── Section: Albums & Soundtracks ── */}
       {(activeTab === "all" || activeTab === "fresh") && albumsData.length > 0 && (
         <Section title="Albums &amp; Soundtracks" eyebrow="Collections" subtitle="Browse by movie &amp; album" status="ready">
-          {albumsData.slice(0, 24).map((album) => (
+          {albumsData.slice(0, 16).map((album) => (
             <AlbumCard key={album._id || album.name} album={album} />
           ))}
         </Section>
