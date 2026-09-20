@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Topbar from "./Topbar";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
@@ -20,6 +20,8 @@ import { useUI } from "../../context/UIContext";
 // (Library, Playlist) are wrapped in <ProtectedRoute> at the router level;
 // this shell itself never redirects.
 const AppShell = () => {
+  const location = useLocation();
+  const showFooter = !location.pathname.startsWith("/playlist");
   const { currentSong } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
@@ -52,7 +54,7 @@ const AppShell = () => {
               <Sidebar onCreatePlaylist={requestCreatePlaylist} />
               <main className={`w-full min-w-0 ${currentSong ? "pb-40 md:pb-28" : "pb-24 md:pb-6"}`}>
                 <Outlet context={{ openCreatePlaylist: requestCreatePlaylist }} />
-                <Footer />
+                {showFooter && <Footer />}
               </main>
             </div>
             <Player />

@@ -15,11 +15,13 @@ import {
   IoInformationCircleOutline,
   IoMusicalNotes,
   IoRefreshOutline,
+  IoAdd,
 } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import Modal from "../components/ui/Modal";
 import { EmptyState } from "../components/ui/StatePanels";
 import PlaylistFilters from "../components/playlist/PlaylistFilters";
+import SongRow from "../components/song/SongRow";
 import { useLibrary } from "../context/LibraryContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useUI } from "../context/UIContext";
@@ -78,12 +80,17 @@ const Playlist = () => {
     renamePlaylist,
     removeSongFromPlaylist,
     reorderPlaylist,
+    addSongToPlaylist,
   } = useLibrary();
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
 
   const [loading, setLoading] = useState(true);
   const [remotePlaylist, setRemotePlaylist] = useState(null);
   const [error, setError] = useState(false);
+
+  // Recommended songs state
+  const [recommendedSongs, setRecommendedSongs] = useState([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
 
   // Search, Filter & Sort state
   const [searchQuery, setSearchQuery] = useState("");
@@ -249,6 +256,80 @@ const Playlist = () => {
 
   // Raw songs from playlist
   const allSongs = useMemo(() => (playlist?.songs || []).map(normalizeSong), [playlist]);
+
+  // Load smart recommendations based on current playlist songs
+  const loadRecommendations = useCallback(async () => {
+    if (!allSongs || allSongs.length === 0) return;
+    setLoadingRecs(true);
+    try {
+      const allAvailable = await songService.getAll();
+      const currentIds = new Set(allSongs.map((s) => String(songId(s))));
+      const candidates = (allAvailable || []).filter((s) => !currentIds.has(String(songId(s))));
+
+      const playlistLangs = new Set(
+        allSongs.map((s) => s.language?.toLowerCase()?.trim()).filter(Boolean)
+      );
+      const playlistArtists = new Set(
+        allSongs.map((s) => s.artist?.toLowerCase()?.trim()).filter(Boolean)
+      );
+
+      const scored = candidates.map((s) => {
+        let score = Math.random() * 0.5;
+        const lang = s.language?.toLowerCase()?.trim();
+        const artist = s.artist?.toLowerCase()?.trim();
+        if (artist && playlistArtists.has(artist)) score += 4;
+        if (lang && playlistLangs.has(lang)) score += 2.5;
+        return { song: normalizeSong(s), score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      setRecommendedSongs(scored.slice(0, 8).map((item) => item.song));
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingRecs(false);
+    }
+  }, [allSongs]);
+
+  // Initial recommendations load
+  useEffect(() => {
+    if (allSongs.length > 0) {
+      loadRecommendations();
+    }
+  }, [allSongs.length, loadRecommendations]);
+
+  // Background Auto-Refresh (seamlessly rotates recommendations every 30s in the background)
+  useEffect(() => {
+    if (allSongs.length === 0) return;
+    const interval = setInterval(() => {
+      loadRecommendations();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [allSongs.length, loadRecommendations]);
+
+  const handleAddRecommended = async (song) => {
+    if (playlist && (playlist.id || playlist._id)) {
+      await addSongToPlaylist(playlist.id || playlist._id, song);
+      toast?.(`Added "${song.title}" to playlist`, "success");
+      // Remove added song
+      setRecommendedSongs((prev) => prev.filter((s) => songId(s) !== songId(song)));
+      // Auto-replenish with a fresh recommendation
+      try {
+        const allAvailable = await songService.getAll();
+        const currentIds = new Set([
+          ...allSongs.map((s) => String(songId(s))),
+          String(songId(song)),
+          ...recommendedSongs.map((s) => String(songId(s))),
+        ]);
+        const candidate = (allAvailable || []).find((s) => !currentIds.has(String(songId(s))));
+        if (candidate) {
+          setRecommendedSongs((prev) => [...prev, normalizeSong(candidate)]);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
 
   // Extract available languages dynamically
   const availableLanguages = useMemo(() => {
@@ -765,6 +846,53 @@ const Playlist = () => {
         </div>
       )}
 
+      {/* ── Recommended Songs Section (shown on Playlist page instead of Footer) ── */}
+      {allSongs.length > 0 && (
+        <div className="mt-10 pt-6 border-t border-white/[0.08]">
+          <div className="mb-4 px-1">
+            <h2 className="text-base sm:text-lg font-black text-white">
+              Recommended Songs
+            </h2>
+            <p className="text-xs text-white/50 mt-0.5">
+              Based on the tracks in this playlist
+            </p>
+          </div>
+
+          {loadingRecs && recommendedSongs.length === 0 ? (
+            <div className="flex items-center justify-center py-10 text-xs text-white/40">
+              Loading recommendations...
+            </div>
+          ) : recommendedSongs.length > 0 ? (
+            <div className="divide-y divide-white/[0.03] rounded-2xl border border-white/[0.07] bg-[#101011] shadow-xl overflow-hidden">
+              {recommendedSongs.map((recSong, idx) => (
+                <SongRow
+                  key={songId(recSong) || idx}
+                  song={recSong}
+                  queue={recommendedSongs}
+                  index={idx}
+                  showIndex={false}
+                  action={
+                    isUserPlaylistPure ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddRecommended(recSong);
+                        }}
+                        className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-400 hover:text-black transition-all active:scale-95 shadow-sm shrink-0"
+                      >
+                        <IoAdd className="text-xs" />
+                        Add
+                      </button>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* ── Edit Playlist Modal ── */}
       {!isSystemPlaylist && (
         <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit playlist">
@@ -837,7 +965,7 @@ const PlaylistTrackRow = ({
 
   return (
     <div
-      className={`group relative flex items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-white/[0.04] md:grid md:grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] md:px-4 ${
+      className={`group relative flex items-center justify-between gap-2 pl-2.5 pr-1 py-2 transition hover:bg-white/[0.04] sm:px-3 sm:py-2.5 md:grid md:grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] md:gap-3 md:px-4 ${
         menuOpen ? "z-30" : "z-1"
       } ${
         isActive ? "bg-amber-400/[0.06] animate-pulse-glow" : ""
@@ -873,13 +1001,13 @@ const PlaylistTrackRow = ({
       </div>
 
       {/* Artwork + Title */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
         <div
           role="button"
           tabIndex={0}
           onClick={handlePlay}
           onKeyDown={(e) => e.key === "Enter" && handlePlay(e)}
-          className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg cursor-pointer"
+          className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 overflow-hidden rounded-lg cursor-pointer"
         >
           <img
             src={song.thumbnail_url}
@@ -896,25 +1024,25 @@ const PlaylistTrackRow = ({
           <button
             type="button"
             onClick={handlePlay}
-            className={`block truncate text-left text-sm font-semibold leading-snug hover:underline ${
+            className={`block w-full truncate text-left text-sm font-semibold leading-snug hover:underline ${
               isActive ? "text-amber-300 font-bold" : "text-white"
             }`}
           >
             {song.title}
           </button>
-          <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/45 md:hidden">
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-white/45 md:hidden">
             <Link
               to={`/artist/${encodeURIComponent(song.artist)}`}
               onClick={(e) => e.stopPropagation()}
-              className="truncate hover:text-white transition-colors"
+              className="min-w-0 truncate hover:text-white transition-colors"
             >
               {song.artist}
             </Link>
             {song.language && (
-              <>
+              <span className="shrink-0 flex items-center gap-1 text-white/30">
                 <span>•</span>
                 <span>{song.language}</span>
-              </>
+              </span>
             )}
           </div>
         </div>
@@ -944,7 +1072,7 @@ const PlaylistTrackRow = ({
       </div>
 
       {/* Actions: Like + More Options Menu + User Playlist Reorder/Remove */}
-      <div className="flex items-center justify-end gap-1 shrink-0">
+      <div className="flex items-center justify-end gap-1 shrink-0 ml-auto">
         <button
           type="button"
           aria-label={liked ? "Unlike" : "Like"}
@@ -952,8 +1080,8 @@ const PlaylistTrackRow = ({
             e.stopPropagation();
             toggleLike(song);
           }}
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-base transition hover:scale-110 ${
-            liked ? "text-amber-400" : "text-white/30 hover:text-amber-300"
+          className={`flex h-8 w-8 items-center justify-center rounded-full text-base transition active:scale-95 ${
+            liked ? "text-amber-400" : "text-white/60 hover:text-amber-300 active:text-amber-400"
           }`}
         >
           {liked ? <IoMdHeart /> : <IoMdHeartEmpty />}
@@ -970,7 +1098,7 @@ const PlaylistTrackRow = ({
               e.stopPropagation();
               setMenuOpen((v) => !v);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white/40 transition hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-base text-white/60 transition hover:text-white active:scale-95"
           >
             <IoEllipsisHorizontal />
           </button>
@@ -988,7 +1116,7 @@ const PlaylistTrackRow = ({
         </div>
 
         {isUserPlaylist && (
-          <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+          <div className="hidden md:flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
             <button
               type="button"
               aria-label="Move song up"

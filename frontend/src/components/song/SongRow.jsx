@@ -9,7 +9,7 @@ import { normalizeSong, songId, formatTime } from "../../lib/media";
 import MediaOptionsMenu from "../ui/MediaOptionsMenu";
 
 // Compact row used in playlist tracklists, Library, Queue, Artist popular tracks.
-const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist }) => {
+const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist, action }) => {
   const song = normalizeSong(rawSong);
   const { currentSong, isPlaying, playSong, setIsPlaying, addToQueue } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
@@ -43,7 +43,7 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
 
   return (
     <div
-      className={`group grid grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-xl px-2 py-2 transition-colors sm:grid-cols-[2rem_1fr_6rem_auto] ${
+      className={`group grid grid-cols-[2rem_1fr_auto] items-center gap-2 pl-2.5 pr-1 py-2 transition-colors sm:grid-cols-[2rem_1fr_6rem_auto] sm:gap-3 sm:px-3 ${
         isActive ? "bg-amber-400/[0.07]" : "hover:bg-white/[0.04]"
       } ${unavailable ? "opacity-60" : ""}`}
     >
@@ -85,7 +85,7 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
       </div>
 
       {/* Artwork + title + artist */}
-      <button type="button" onClick={handlePlay} className="flex min-w-0 items-center gap-3 text-left">
+      <button type="button" onClick={handlePlay} className="flex min-w-0 items-center gap-2.5 sm:gap-3 text-left">
         {!imgError && song.thumbnail_url ? (
           <img
             src={song.thumbnail_url}
@@ -100,7 +100,7 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
             ♪
           </div>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p
             className={`truncate text-sm font-semibold leading-snug sm:text-[0.9rem] ${isActive ? "text-amber-300" : "text-white"}`}
             title={song.title}
@@ -118,8 +118,9 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
         {secondaryLabel}
       </div>
 
-      {/* Right actions: duration + like + more */}
-      <div className="flex items-center gap-1.5">
+      {/* Right actions: custom action + duration + like + more */}
+      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+        {action}
         {(duration != null || song.duration) && (
           <span className="hidden tabular-nums text-xs text-white/35 sm:inline">
             {formatTime(duration ?? song.duration)}
@@ -132,8 +133,8 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
           aria-label={liked ? "Unlike song" : "Like song"}
           aria-pressed={liked}
           onClick={() => toggleLike(song)}
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all duration-150 hover:scale-110 sm:opacity-0 sm:group-hover:opacity-100 ${
-            liked ? "text-amber-400 !opacity-100" : "text-white/40 hover:text-amber-300"
+          className={`flex h-8 w-8 items-center justify-center rounded-full text-base transition-all duration-150 active:scale-95 sm:opacity-0 sm:group-hover:opacity-100 ${
+            liked ? "text-amber-400 !opacity-100" : "text-white/60 hover:text-amber-300 active:text-amber-400"
           }`}
         >
           {liked ? <IoMdHeart /> : <IoMdHeartEmpty />}
@@ -154,7 +155,7 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
               }
               setMenuOpen((v) => !v);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white/40 transition hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-base text-white/60 transition hover:text-white active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
           >
             <IoEllipsisHorizontal />
           </button>
