@@ -299,18 +299,19 @@ export async function getSongsFromAlbum(albumUrl) {
  *   3. High detail concurrency (24 parallel requests)
  *   4. High-performance single-roundtrip MongoDB bulkWrite
  */
-export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
+export async function scrapeCategoryPage(categoryKey, pageNum = 1, year = null) {
   const catKey = (categoryKey || "punjabi").toLowerCase().trim();
   const baseUrl = CATEGORY_MAP[catKey] || `${BASE_URL}/category/${catKey}/`;
   const langLabel = catKey === "instagram-viral-song"
     ? "Instagram viral song"
     : catKey.charAt(0).toUpperCase() + catKey.slice(1);
 
-  const pageUrl = pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/+$/, "")}/page/${pageNum}/`;
+  // Build URL: paginated + optional year filter (?release_year=YYYY)
+  const basePaged = pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/+$/, "")}/page/${pageNum}/`;
+  const pageUrl = year ? `${basePaged}?release_year=${year}` : basePaged;
+
   const MAX_SONGS_PER_SCRAPE = 50;
-  // Hard cap — set well above the real maximum to never be the limiting factor.
-  // Real stop condition is 3 consecutive empty pages (see populate script).
-  const HARD_MAX_PAGES = 500;
+  const HARD_MAX_PAGES = 9999;
   let maxPages = HARD_MAX_PAGES;
 
   // ── Step 1: Category listing → collect album links ────────────────────────
@@ -346,8 +347,12 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
     }
 
     const seenAlbums = new Set();
+    const seenDirectSongs = new Set();
+    const directSongUrls = []; // Direct /song/ links (used on older/deeper pages)
+
     $("a[href]").each((_, el) => {
       const href = $(el).attr("href") || "";
+      // Collect /album/ links (newer pages structure)
       if (href.includes("/album/") && !href.endsWith("/album/")) {
         const full = new URL(href, BASE_URL).toString();
         if (!seenAlbums.has(full)) {
@@ -355,51 +360,73 @@ export async function scrapeCategoryPage(categoryKey, pageNum = 1) {
           albumUrls.push(full);
         }
       }
+      // Also collect direct /song/ links (older pages / deeper pagination)
+      if (href.includes("/song/") && href.includes("-mp3-download")) {
+        const full = new URL(href, BASE_URL).toString();
+        if (!seenDirectSongs.has(full)) {
+          seenDirectSongs.add(full);
+          directSongUrls.push(full);
+        }
+      }
     });
   } catch (err) {
     return { success: false, message: err.message, songs: [], hasMore: false };
   }
 
-  if (albumUrls.length === 0) {
+  // If no album links found but direct song links exist, inject them for processing
+  if (albumUrls.length === 0 && directSongUrls.length > 0) {
+    // We'll process directSongUrls directly — skip the album-crawl step
+    // by pre-populating allSongPageUrls below
+  } else if (albumUrls.length === 0) {
     return { success: true, category: catKey, page: pageNum, maxPages, songs: [], newCount: 0, hasMore: pageNum < maxPages };
   }
 
   // ── Step 2: Parallel Album Fetching (up to 15 albums at once) ──────────────
   const seenSongUrls = new Set();
   const allSongPageUrls = [];
-  const targetAlbums = albumUrls.slice(0, 15);
 
-  const albumResults = await Promise.allSettled(
-    targetAlbums.map(async (albumUrl) => {
-      try {
-        const r = await axios.get(albumUrl, {
-          headers: HEADERS,
-          httpsAgent,
-          timeout: 5000,
-        });
-        if (r.status !== 200 || !r.data) return [];
-        const $ = cheerio.load(r.data);
-        const links = [];
-        $("a[href]").each((_, el) => {
-          const href = $(el).attr("href") || "";
-          if (href.includes("/song/") && href.includes("-mp3-download")) {
-            const full = new URL(href, BASE_URL).toString();
-            if (!seenSongUrls.has(full)) {
-              seenSongUrls.add(full);
-              links.push(full);
+  if (albumUrls.length > 0) {
+    // Normal flow: crawl each album page to get individual song links
+    const targetAlbums = albumUrls.slice(0, 15);
+    const albumResults = await Promise.allSettled(
+      targetAlbums.map(async (albumUrl) => {
+        try {
+          const r = await axios.get(albumUrl, {
+            headers: HEADERS,
+            httpsAgent,
+            timeout: 5000,
+          });
+          if (r.status !== 200 || !r.data) return [];
+          const $ = cheerio.load(r.data);
+          const links = [];
+          $("a[href]").each((_, el) => {
+            const href = $(el).attr("href") || "";
+            if (href.includes("/song/") && href.includes("-mp3-download")) {
+              const full = new URL(href, BASE_URL).toString();
+              if (!seenSongUrls.has(full)) {
+                seenSongUrls.add(full);
+                links.push(full);
+              }
             }
-          }
-        });
-        return links;
-      } catch {
-        return [];
+          });
+          return links;
+        } catch {
+          return [];
+        }
+      })
+    );
+    for (const r of albumResults) {
+      if (r.status === "fulfilled" && Array.isArray(r.value)) {
+        allSongPageUrls.push(...r.value);
       }
-    })
-  );
-
-  for (const r of albumResults) {
-    if (r.status === "fulfilled" && Array.isArray(r.value)) {
-      allSongPageUrls.push(...r.value);
+    }
+  } else {
+    // Fallback flow: direct /song/ links found on the listing page itself
+    for (const url of directSongUrls) {
+      if (!seenSongUrls.has(url)) {
+        seenSongUrls.add(url);
+        allSongPageUrls.push(url);
+      }
     }
   }
 
