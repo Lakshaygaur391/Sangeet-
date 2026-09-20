@@ -443,12 +443,6 @@ export const getCuratedPlaylist = async (typeOrLang) => {
       if (collage.length === 4) break;
     }
   }
-    if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
-      seenThumb.add(s.thumbnail_url);
-      collage.push(s.thumbnail_url);
-      if (collage.length === 4) break;
-    }
-  }
 
   return {
     id: `spotlight-${rawKey || "featured"}`,

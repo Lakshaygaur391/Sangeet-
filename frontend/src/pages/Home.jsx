@@ -87,7 +87,7 @@ const AlbumCard = ({ album }) => (
 const Home = () => {
   const navigate = useNavigate();
   const { playSong } = usePlayer();
-  const { recentlyPlayed } = useLibrary();
+  const { recentlyPlayed, yearlyPlaylists } = useLibrary();
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
