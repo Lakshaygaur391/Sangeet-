@@ -56,11 +56,6 @@ const ArtistCard = memo(({ artist, onPlay }) => {
   const handlePlayArtist = async (e) => {
     e.stopPropagation();
 
-    if (!isAuthenticated) {
-      openAuthPrompt("default");
-      return;
-    }
-
     if (onPlay) {
       onPlay(artist);
       return;

@@ -4,7 +4,6 @@ import {
   IoPlay,
   IoPause,
   IoShuffle,
-  IoSparkles,
   IoFlame,
   IoTrendingUp,
   IoChevronForward,
@@ -50,7 +49,6 @@ const HOME_FILTER_TABS = [
   { key: "trending", label: "Top Charts" },
   { key: "fresh", label: "New Drops" },
   { key: "regional", label: "Regional Hub" },
-  { key: "yearly", label: "Yearly Rewind" },
   { key: "artists", label: "Artists" },
 ];
 
@@ -89,7 +87,7 @@ const AlbumCard = ({ album }) => (
 const Home = () => {
   const navigate = useNavigate();
   const { playSong } = usePlayer();
-  const { recentlyPlayed, yearlyPlaylists } = useLibrary();
+  const { recentlyPlayed } = useLibrary();
   const { user, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useUI();
 
@@ -213,7 +211,7 @@ const Home = () => {
         title: "Bollywood Blockbusters",
         subtitle: "Top movie anthems",
         image: bollywood[0]?.thumbnail_url,
-        songs: bollywood,
+        songs: bollywood.slice(0, 20),
         href: "/playlist/spotlight-bollywood",
       });
     }
@@ -224,7 +222,7 @@ const Home = () => {
         title: "Punjabi Hits",
         subtitle: "High-energy tracks",
         image: punjabi[0]?.thumbnail_url,
-        songs: punjabi,
+        songs: punjabi.slice(0, 20),
         href: "/playlist/spotlight-punjabi",
       });
     }
@@ -235,7 +233,7 @@ const Home = () => {
         title: "Haryanvi Beats",
         subtitle: "Folk & modern drops",
         image: haryanvi[0]?.thumbnail_url,
-        songs: haryanvi,
+        songs: haryanvi.slice(0, 20),
         href: "/playlist/spotlight-haryanvi",
       });
     }
@@ -245,7 +243,7 @@ const Home = () => {
         title: "Top Trending India",
         subtitle: "Viral chart-toppers",
         image: trending[0]?.thumbnail_url,
-        songs: trending,
+        songs: trending.slice(0, 20),
         href: "/playlist/spotlight-trending",
       });
     }
@@ -261,14 +259,49 @@ const Home = () => {
         songs: ySongs.length > 0 ? ySongs : fresh.slice(0, 20),
         href: `/playlist/${yp.id || yp._id || "yearly"}`,
       });
-    } else if (fresh.length > 0) {
-      const fallbackImg = fresh.find((s) => s.year === "2026" || s.year === 2026)?.thumbnail_url || fresh[0]?.thumbnail_url;
+    }
+
+    const indipop = byLanguage("Indipop");
+    if (indipop.length > 0 && items.length < 6) {
       items.push({
-        title: "2026 Rewind",
-        subtitle: "Top chart songs",
-        image: fallbackImg,
-        songs: fresh.slice(0, 20),
-        href: "/library",
+        title: "Indipop Vibes",
+        subtitle: "Non-film indie hits",
+        image: indipop[0]?.thumbnail_url,
+        songs: indipop.slice(0, 20),
+        href: "/playlist/spotlight-indipop",
+      });
+    }
+
+    const telugu = byLanguage("Telugu");
+    if (telugu.length > 0 && items.length < 6) {
+      items.push({
+        title: "Telugu Chartbusters",
+        subtitle: "Tollywood hits",
+        image: telugu[0]?.thumbnail_url,
+        songs: telugu.slice(0, 20),
+        href: "/playlist/spotlight-telugu",
+      });
+    }
+
+    const tamil = byLanguage("Tamil");
+    if (tamil.length > 0 && items.length < 6) {
+      items.push({
+        title: "Tamil Melodies",
+        subtitle: "Kollywood soundtrack favorites",
+        image: tamil[0]?.thumbnail_url,
+        songs: tamil.slice(0, 20),
+        href: "/playlist/spotlight-tamil",
+      });
+    }
+
+    const bhojpuri = byLanguage("Bhojpuri");
+    if (bhojpuri.length > 0 && items.length < 6) {
+      items.push({
+        title: "Bhojpuri Dance Hits",
+        subtitle: "Festive dance tracks",
+        image: bhojpuri[0]?.thumbnail_url,
+        songs: bhojpuri.slice(0, 20),
+        href: "/playlist/spotlight-bhojpuri",
       });
     }
 
@@ -296,22 +329,18 @@ const Home = () => {
 
   const handlePlayCollection = (collectionSongs) => {
     if (!collectionSongs?.length) return;
-    if (!isAuthenticated) {
-      openAuthPrompt("default");
-      return;
-    }
     playSong(collectionSongs[0], collectionSongs, 0);
   };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in pb-12">
       {/* ── Greeting Header & Filter Navigation Bar ── */}
-      <div className="space-y-4">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-br from-amber-500/10 via-amber-400/[0.03] to-transparent p-5 sm:p-7 shadow-xl">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/[0.07] bg-gradient-to-br from-amber-500/10 via-amber-400/[0.03] to-transparent p-4 sm:p-7 shadow-xl">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(234,179,74,0.12),transparent_55%)]" />
-          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <p className="text-meta font-extrabold tracking-widest text-amber-400">
+              <p className="text-meta font-extrabold tracking-widest text-amber-400 text-[10px] sm:text-xs">
                 {greeting}
                 {user?.name ? `, ${user.name.split(" ")[0]}` : ""}
               </p>
@@ -321,20 +350,20 @@ const Home = () => {
             </div>
 
             {/* Quick Explore Buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => navigate("/discover")}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-white/10 hover:border-amber-400/40 hover:scale-105 active:scale-95"
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold text-white transition-all hover:bg-white/10 hover:border-amber-400/40 hover:scale-105 active:scale-95"
               >
-                <IoCompassOutline className="text-sm text-amber-300" /> Discover
+                <IoCompassOutline className="text-xs sm:text-sm text-amber-300" /> Discover
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/library")}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-white/10 hover:border-amber-400/40 hover:scale-105 active:scale-95"
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold text-white transition-all hover:bg-white/10 hover:border-amber-400/40 hover:scale-105 active:scale-95"
               >
-                <IoMusicalNotes className="text-sm text-amber-300" /> Your Library
+                <IoMusicalNotes className="text-xs sm:text-sm text-amber-300" /> Your Library
               </button>
             </div>
           </div>
@@ -347,10 +376,11 @@ const Home = () => {
               key={t.key}
               type="button"
               onClick={() => setActiveTab(t.key)}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 ${activeTab === t.key
-                ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
-                : "border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
-                }`}
+              className={`rounded-full px-3.5 sm:px-4 py-1.5 text-xs font-bold transition-all duration-200 shrink-0 ${
+                activeTab === t.key
+                  ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
+                  : "border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
+              }`}
             >
               {t.label}
             </button>
@@ -360,28 +390,44 @@ const Home = () => {
 
       {/* ── Spotify-Style 6-Pack Quick Play Grid ── */}
       {(activeTab === "all" || activeTab === "fresh") && quickMixCards.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
           {quickMixCards.map((card, idx) => (
             <div
               key={idx}
+              role="button"
+              tabIndex={0}
               onClick={() => navigate(card.href)}
-              className="group relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-white/[0.07] bg-[#141416]/80 p-2 shadow-md transition-all duration-300 hover:border-white/20 hover:bg-[#1a1a1e] hover:shadow-xl"
+              onKeyDown={(e) => e.key === "Enter" && navigate(card.href)}
+              className="group relative flex h-14 sm:h-16 cursor-pointer items-center overflow-hidden rounded-xl border border-white/[0.07] bg-[#161619] hover:bg-[#1c1c22] active:bg-[#22222a] active:scale-[0.98] shadow-md shadow-black/40 transition-all duration-200"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <img
-                  src={card.image}
-                  alt=""
-                  className="h-14 w-14 shrink-0 rounded-xl object-cover shadow-md transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-white group-hover:text-amber-200 transition-colors">
-                    {card.title}
-                  </p>
-                  <p className="truncate text-xs text-white/50">{card.subtitle}</p>
-                </div>
+              {/* Flush left square artwork */}
+              <div className="relative h-full w-14 sm:w-16 shrink-0 bg-[#1e1e24] overflow-hidden">
+                {card.image ? (
+                  <img
+                    src={card.image}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-white/[0.05] text-amber-400">
+                    <IoMusicalNotes className="text-xl" />
+                  </div>
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent to-black/20" />
               </div>
 
-              {/* Floating Quick Play Button */}
+              {/* Title & info */}
+              <div className="min-w-0 flex-1 px-2.5 sm:px-3 py-1 flex flex-col justify-center">
+                <p className="line-clamp-2 text-xs sm:text-sm font-bold text-white leading-tight group-hover:text-amber-200 transition-colors">
+                  {card.title}
+                </p>
+                <p className="hidden sm:block truncate text-[11px] text-white/45 mt-0.5">
+                  {card.subtitle}
+                </p>
+              </div>
+
+              {/* Floating Quick Play Button on desktop hover */}
               <button
                 type="button"
                 aria-label={`Play ${card.title}`}
@@ -389,7 +435,7 @@ const Home = () => {
                   e.stopPropagation();
                   handlePlayCollection(card.songs);
                 }}
-                className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg opacity-0 shadow-amber-500/25 transition-all duration-200 group-hover:opacity-100 group-hover:scale-105 active:scale-95"
+                className="mr-2 sm:mr-3 hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg opacity-0 shadow-amber-500/25 transition-all duration-200 group-hover:opacity-100 group-hover:scale-110 active:scale-95"
               >
                 <IoPlay className="text-base translate-x-0.5" />
               </button>
@@ -400,40 +446,39 @@ const Home = () => {
 
       {/* ── Featured Hero Showcase Banner ── */}
       {(activeTab === "all" || activeTab === "fresh") && status === "ready" && featured && (
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#121214] shadow-2xl group">
-          <div className="relative h-64 sm:h-80 md:h-96 w-full overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.1] bg-[#0f0f13] shadow-[0_24px_60px_rgba(0,0,0,0.6)] group">
+          {/* Ambient blurred backdrop glow */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img
               src={featured.thumbnail_url}
               alt=""
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="h-full w-full object-cover opacity-25 blur-3xl scale-125 transition-transform duration-1000 group-hover:scale-135"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(234,179,74,0.15),transparent_60%)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0b0b0e] via-[#0b0b0e]/85 to-black/50" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0b0b0e] via-[#0b0b0e]/75 to-transparent" />
+          </div>
 
-            <div className="absolute bottom-0 left-0 p-6 sm:p-8 md:p-10 max-w-2xl">
-              {featured.language && (
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur-md">
-                  {featured.language} Spotlight
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between p-6 sm:p-8 lg:p-10 gap-6">
+            <div className="max-w-xl z-10">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white/90 shadow-sm backdrop-blur-md">
+                  {featured.language || "Featured"} Spotlight
                 </span>
-              )}
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-semibold text-white/60">
+                  Trending Now
+                </span>
+              </div>
 
-              <h2 className="text-h1 mt-2 font-black text-white truncate drop-shadow-md" title={featured.title}>
+              <h2 className="text-display mt-3 font-black text-white leading-tight drop-shadow-md line-clamp-2" title={featured.title}>
                 {featured.title}
               </h2>
-              <p className="text-body mt-1 text-white/70 line-clamp-1">{featured.artist}</p>
+              <p className="text-body mt-2 text-white/70 font-medium line-clamp-1">{featured.artist}</p>
 
-              <div className="mt-5 flex items-center gap-3">
+              <div className="mt-6 flex items-center gap-3.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      openAuthPrompt("default");
-                      return;
-                    }
-                    playSong(featured, [featured, ...fresh], 0);
-                  }}
-                  className="flex items-center gap-2 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 px-7 py-3 text-sm font-black text-black shadow-lg shadow-amber-500/30 transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={() => playSong(featured, [featured, ...fresh], 0)}
+                  className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 px-8 py-3.5 text-sm font-black text-black shadow-lg shadow-amber-500/25 transition-all duration-200 hover:scale-105 hover:shadow-amber-500/40 active:scale-95"
                 >
                   <IoPlay className="translate-x-0.5 text-lg" />
                   <span>Listen Now</span>
@@ -449,11 +494,26 @@ const Home = () => {
                     const shuffled = [...fresh].sort(() => 0.5 - Math.random());
                     playSong(shuffled[0], shuffled, 0);
                   }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white/80 backdrop-blur-md transition hover:border-white/40 hover:bg-black/60 hover:text-white active:scale-95"
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/80 backdrop-blur-md transition hover:border-amber-400/40 hover:bg-white/10 hover:text-white active:scale-95 shadow-md"
                   aria-label="Shuffle play"
                 >
                   <IoShuffle className="text-xl" />
                 </button>
+              </div>
+            </div>
+
+            {/* Right floating artwork card on desktop */}
+            <div className="relative shrink-0 hidden md:block group-hover:scale-105 transition-transform duration-500">
+              <div className="relative h-56 w-56 lg:h-64 lg:w-64 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shadow-black/80">
+                <img
+                  src={featured.thumbnail_url}
+                  alt={featured.title}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <span className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-2.5 py-1 text-[11px] font-bold text-amber-300 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+                  <span className="eq-bars"><span/><span/><span/></span> Sangeet Pick
+                </span>
               </div>
             </div>
           </div>
@@ -514,9 +574,6 @@ const Home = () => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-meta font-extrabold text-amber-400 uppercase tracking-wider">Curated Collections</span>
-                <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/70">
-                  {selectedRegionData.songs.length} Tracks
-                </span>
               </div>
               <h2 className="text-h2 font-black text-white mt-1">Regional Spotlight</h2>
               <p className="text-caption text-white/50 mt-0.5">{selectedRegionData.subtitle}</p>
@@ -590,7 +647,6 @@ const Home = () => {
           ))}
         </Section>
       )}
-
       {/* ── Section: Jump Back In (Recently Played History) ── */}
       {(activeTab === "all" || activeTab === "fresh") && recentlyPlayed.length > 0 && (
         <Section

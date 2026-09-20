@@ -77,7 +77,7 @@ const MobileNav = () => {
             {/* User Profile Header */}
             <div className="flex items-center gap-3 border-b border-white/[0.08] pb-4">
               <img
-                src={avatarFor(user?.name || "User", "eab34a&color=000")}
+                src={user?.avatar || avatarFor(user?.name || "User")}
                 alt=""
                 className="h-12 w-12 rounded-full border-2 border-amber-400/40 object-cover shadow-lg shadow-amber-400/20"
               />
@@ -187,7 +187,7 @@ const MobileNav = () => {
             {isAuthenticated ? (
               <div className="relative">
                 <img
-                  src={avatarFor(user?.name || "User", "eab34a&color=000")}
+                  src={user?.avatar || avatarFor(user?.name || "User")}
                   alt=""
                   className={`h-6 w-6 rounded-full border object-cover transition-transform ${
                     accountMenuOpen ? "border-amber-400 scale-110 shadow-sm shadow-amber-400/50" : "border-white/20"

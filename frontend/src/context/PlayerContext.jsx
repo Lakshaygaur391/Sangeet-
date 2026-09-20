@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeSong, songId } from "../lib/media";
+import songService from "../services/songService";
 
 const PlayerContext = createContext();
 const PlaybackProgressContext = createContext({
@@ -105,7 +106,8 @@ export const PlayerProvider = ({ children }) => {
   }, [currentSong]);
 
   useEffect(() => {
-    saveStorage(STORAGE_KEYS.QUEUE, songList);
+    // Only persist first 50 songs to localStorage to prevent blocking the main thread with huge lists
+    saveStorage(STORAGE_KEYS.QUEUE, songList.slice(0, 50));
   }, [songList]);
 
   useEffect(() => {
@@ -130,6 +132,19 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [duration]);
 
+  // Instant hardware-synchronized play/pause toggle
+  const togglePlay = useCallback(() => {
+    setIsPlaying((prev) => {
+      const next = !prev;
+      if (next) {
+        engineRef.current?.play?.();
+      } else {
+        engineRef.current?.pause?.();
+      }
+      return next;
+    });
+  }, []);
+
   // Single entry point every page uses to start playback.
   const playSong = useCallback((rawSong, queue, index) => {
     const song = normalizeSong(rawSong);
@@ -149,6 +164,7 @@ export const PlayerProvider = ({ children }) => {
       setDuration(Number(song.duration));
     }
     setIsPlaying(true);
+    engineRef.current?.play?.();
     onPlayRef.current?.(song);
     return true;
   }, []);
@@ -166,12 +182,71 @@ export const PlayerProvider = ({ children }) => {
         setDuration(Number(song.duration));
       }
       setIsPlaying(true);
+      engineRef.current?.play?.();
       onPlayRef.current?.(song);
     },
     [songList]
   );
 
-  const playNext = useCallback(() => {
+  // Proactive Seamless Autoplay Queue Extension (like Spotify / Apple Music)
+  // When nearing the end of the queue (e.g. on song 19 or 20 of a 20-song playlist),
+  // automatically pre-append matching recommended tracks so song 21 is queued ahead of time.
+  const isFetchingAutoplayRef = useRef(false);
+
+  useEffect(() => {
+    if (!isPlaying || !currentSong || !songList.length) return;
+    if (repeatMode !== "off") return;
+    if (currentIndex < songList.length - 2) return;
+    if (isFetchingAutoplayRef.current) return;
+
+    isFetchingAutoplayRef.current = true;
+    const fetchNextAutoplayBatch = async () => {
+      try {
+        const allCatalog = await songService.getAll();
+        if (!Array.isArray(allCatalog) || allCatalog.length === 0) return;
+
+        const currentIds = new Set(songList.map(songId));
+        const currentLang = (currentSong?.language || songList[0]?.language || "").trim().toLowerCase();
+
+        // 1. Prioritize playable songs matching the current playlist's language
+        let matching = allCatalog.filter(
+          (s) =>
+            s?.audio_url &&
+            !currentIds.has(songId(s)) &&
+            (s.language || "").trim().toLowerCase() === currentLang
+        );
+
+        // 2. If same-language pool has few tracks, supplement with other unplayed playable songs
+        if (matching.length < 5) {
+          const general = allCatalog.filter((s) => s?.audio_url && !currentIds.has(songId(s)));
+          matching = [...matching, ...general];
+        }
+        if (matching.length === 0) return;
+
+        const nextBatch = matching
+          .slice()
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 10)
+          .map((s) => ({ ...normalizeSong(s), isAutoplay: true }));
+
+        if (nextBatch.length > 0) {
+          setSongList((prev) => {
+            const existing = new Set(prev.map(songId));
+            const filtered = nextBatch.filter((b) => !existing.has(songId(b)));
+            return [...prev, ...filtered];
+          });
+        }
+      } catch (e) {
+        console.warn("Autoplay prefetch failed:", e);
+      } finally {
+        isFetchingAutoplayRef.current = false;
+      }
+    };
+
+    fetchNextAutoplayBatch();
+  }, [currentIndex, songList.length, isPlaying, currentSong, repeatMode]);
+
+  const playNext = useCallback(async () => {
     if (!songList.length) return;
     if (shuffle) {
       if (songList.length === 1) return playAt(0);
@@ -180,9 +255,56 @@ export const PlayerProvider = ({ children }) => {
       return playAt(next);
     }
     const atEnd = currentIndex >= songList.length - 1;
-    if (atEnd && repeatMode === "off") return;
+    if (atEnd) {
+      if (repeatMode === "all") {
+        return playAt(0);
+      }
+      // Seamless Endless Autoplay (like Spotify / Apple Music / YouTube Music):
+      // When the 20th song (or end of queue) finishes, dynamically queue next songs
+      // so the music never stops playing automatically!
+      try {
+        const allCatalog = await songService.getAll();
+        if (Array.isArray(allCatalog) && allCatalog.length > 0) {
+          const currentIds = new Set(songList.map(songId));
+          const currentLang = (currentSong?.language || songList[0]?.language || "").trim().toLowerCase();
+
+          let freshPool = allCatalog.filter(
+            (s) =>
+              s?.audio_url &&
+              !currentIds.has(songId(s)) &&
+              (s.language || "").trim().toLowerCase() === currentLang
+          );
+          if (freshPool.length < 5) {
+            const generalPool = allCatalog.filter((s) => s?.audio_url && !currentIds.has(songId(s)));
+            freshPool = [...freshPool, ...generalPool];
+          }
+          const candidates = freshPool.length > 0 ? freshPool : allCatalog.filter((s) => s?.audio_url);
+          const nextBatch = candidates
+            .slice()
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 10)
+            .map((s) => ({ ...normalizeSong(s), isAutoplay: true }));
+
+          if (nextBatch.length > 0) {
+            setSongList((prev) => [...prev, ...nextBatch]);
+            const nextIndex = currentIndex + 1;
+            const nextTrack = nextBatch[0];
+            setCurrentIndex(nextIndex);
+            setCurrentSong(nextTrack);
+            setIsPlaying(true);
+            engineRef.current?.play?.();
+            onPlayRef.current?.(nextTrack);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Autoplay next tracks failed:", err);
+      }
+      // Fallback: seamless loop to beginning of playlist so music keeps playing
+      return playAt(0);
+    }
     playAt(currentIndex + 1);
-  }, [songList, shuffle, currentIndex, repeatMode, playAt]);
+  }, [songList, shuffle, currentIndex, repeatMode, playAt, currentSong]);
 
   const playPrevious = useCallback(() => {
     if (!songList.length) return;
@@ -203,6 +325,7 @@ export const PlayerProvider = ({ children }) => {
   }, []);
 
   const addToQueue = useCallback((rawSong) => {
+    if (!rawSong) return false;
     const song = normalizeSong(rawSong);
     if (!song.audio_url) return false;
 
@@ -214,6 +337,8 @@ export const PlayerProvider = ({ children }) => {
         onPlayRef.current?.(song);
         return [song];
       }
+      const exists = prev.some((s) => songId(s) === songId(song));
+      if (exists) return prev;
       return [...prev, song];
     });
     return true;
@@ -278,6 +403,7 @@ export const PlayerProvider = ({ children }) => {
       setCurrentIndex,
       isPlaying,
       setIsPlaying,
+      togglePlay,
       shuffle,
       setShuffle,
       repeatMode,
@@ -314,6 +440,7 @@ export const PlayerProvider = ({ children }) => {
       songList,
       currentIndex,
       isPlaying,
+      togglePlay,
       shuffle,
       repeatMode,
       cycleRepeat,

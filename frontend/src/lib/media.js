@@ -122,7 +122,7 @@ export function scoreSongMatch(song, query) {
   return score;
 }
 
-const KNOWN_ARTIST_IMAGES = {
+export const KNOWN_ARTIST_IMAGES = {
   "arijit singh": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80",
   "diljit dosanjh": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80",
   "badshah": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80",
@@ -154,13 +154,32 @@ export function getArtistImage(name = "", fallbackThumbnail = "") {
       return url;
     }
   }
-  if (fallbackThumbnail && !fallbackThumbnail.includes("ui-avatars.com")) {
+  if (fallbackThumbnail && !fallbackThumbnail.includes("ui-avatars.com") && !fallbackThumbnail.includes("dicebear.com")) {
     return fallbackThumbnail;
   }
-  return avatarFor(name, "1c1c1e&color=eab34a");
+  return avatarFor(name);
 }
 
-export function avatarFor(name, bg = "random") {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "?")}&background=${bg}`;
+export const CURATED_AVATARS = [
+  { id: "producer", name: "Studio Producer", style: "adventurer", seed: "Felix", bg: "ffd5dc", badge: "🎧 Beatmaker" },
+  { id: "rockstar", name: "Rock Legend", style: "adventurer", seed: "Zack", bg: "b6e3f4", badge: "🎸 Guitarist" },
+  { id: "dj", name: "Electro DJ", style: "adventurer", seed: "Aneka", bg: "c0aede", badge: "🎛️ Club Resident" },
+  { id: "jazz", name: "Jazz Virtuoso", style: "adventurer", seed: "Milo", bg: "d1d4f9", badge: "🎷 Brass Soul" },
+  { id: "lofi", name: "Lo-Fi Dreamer", style: "adventurer", seed: "Oliver", bg: "ffdfbf", badge: "🎹 Chill Vibes" },
+  { id: "vocalist", name: "Vocal Prodigy", style: "adventurer", seed: "Sophia", bg: "ffd5dc", badge: "🎙️ Lead Vocals" },
+  { id: "cyber", name: "Cyber Synth", style: "bottts", seed: "CyberEcho", bg: "b6e3f4", badge: "🤖 Synthwave" },
+  { id: "bass", name: "Pulse Bass", style: "bottts", seed: "PulseBass", bg: "ffd5dc", badge: "⚡ Sub-Bass" },
+  { id: "indie", name: "Indie Creator", style: "notionists", seed: "UmangShukla", bg: "ffdfbf", badge: "🎨 Sound Sculptor" },
+  { id: "cosmic", name: "Cosmic Traveler", style: "adventurer", seed: "Luna", bg: "c0aede", badge: "🪐 Ambient Spaced" },
+  { id: "vinyl", name: "Vinyl Master", style: "adventurer", seed: "Jack", bg: "d1d4f9", badge: "🎵 Analog Purist" },
+  { id: "pop", name: "Pop Star", style: "lorelei", seed: "Aria", bg: "ffd5dc", badge: "✨ Chart Topper" },
+];
+
+export function getAvatarUrl({ style = "adventurer", seed = "Felix", bg = "ffd5dc" } = {}) {
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bg}`;
 }
 
+export function avatarFor(name, style = "adventurer") {
+  const cleanSeed = encodeURIComponent(String(name || "Listener").trim() || "Listener");
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${cleanSeed}&backgroundColor=ffd5dc,b6e3f4,c0aede,d1d4f9,ffdfbf`;
+}

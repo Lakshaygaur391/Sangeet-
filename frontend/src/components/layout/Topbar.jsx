@@ -11,7 +11,16 @@ const Topbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  );
   const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const isSearchPage = location.pathname === "/search";
   const urlQ = new URLSearchParams(location.search).get("q") || "";
@@ -39,6 +48,13 @@ const Topbar = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSearchPage, localInput, navigate]);
 
+  // Auto-focus search bar when entering Search page
+  useEffect(() => {
+    if (isSearchPage) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearchPage]);
+
   const handleSearchChange = (e) => {
     const val = e.target.value;
     setLocalInput(val);
@@ -57,34 +73,34 @@ const Topbar = () => {
   return (
     <nav className="relative flex items-center justify-between gap-2 px-3 py-2.5 text-white sm:gap-4 sm:px-4 sm:py-3">
       {/* Brand Logo */}
-      <Link to="/" className="flex shrink-0 items-center gap-2 leading-none transition hover:opacity-90">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/25">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      <Link to="/" className="flex shrink-0 items-center gap-2 sm:gap-2.5 leading-none transition hover:opacity-90">
+        <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-black shadow-lg shadow-amber-500/25">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
         </span>
-        <span className="hidden text-lg font-black tracking-[0.14em] text-white sm:inline-block">
+        <span className="hidden sm:inline text-base sm:text-lg font-black tracking-[0.12em] text-white">
           SANGEET
         </span>
       </Link>
 
-      {/* Navigation Search Bar (Desktop only, mobile uses bottom nav & page search) */}
+      {/* Desktop Search Bar (mobile uses dedicated search bar in Search page) */}
       <div className="mx-auto hidden max-w-md flex-1 px-1 sm:px-2 md:flex">
         <div
           onClick={handleSearchClick}
-          className={`flex w-full items-center gap-2 rounded-full border px-3 py-1.5 transition-all duration-200 cursor-pointer ${
+          className={`group flex w-full items-center gap-1.5 sm:gap-2.5 rounded-full border px-2.5 sm:px-4 py-1.5 sm:py-2 transition-all duration-200 cursor-pointer shadow-sm ${
             isSearchPage
-              ? "border-amber-400/50 bg-[#161618] ring-1 ring-amber-400/20"
-              : "border-white/[0.09] bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.07]"
+              ? "border-amber-400/60 bg-[#161619] shadow-[0_0_16px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/30"
+              : "border-white/[0.08] bg-white/[0.035] hover:border-white/20 hover:bg-white/[0.06] hover:shadow-md"
           }`}
         >
-          <IoSearch className="shrink-0 text-base text-white/50" />
+          <IoSearch className="text-sm sm:text-base text-white/45 transition-colors group-hover:text-amber-300 shrink-0" />
           <input
             ref={searchInputRef}
             type="text"
             value={localInput}
             onFocus={handleSearchFocus}
             onChange={handleSearchChange}
-            placeholder="Search songs, artists, genres..."
-            className="min-w-0 flex-1 bg-transparent text-xs font-medium text-white placeholder:text-white/35 focus:outline-none"
+            placeholder={isMobile ? "Search..." : "Search songs, artists, genres..."}
+            className="w-full min-w-0 bg-transparent text-xs font-medium text-white placeholder:text-white/35 focus:outline-none"
           />
           {localInput ? (
             <button
@@ -94,13 +110,14 @@ const Topbar = () => {
                 e.stopPropagation();
                 setLocalInput("");
                 if (isSearchPage) navigate("/search", { replace: true });
+                searchInputRef.current?.focus();
               }}
-              className="shrink-0 text-white/40 hover:text-white"
+              className="text-white/40 hover:text-white transition p-0.5 shrink-0"
             >
-              <IoClose className="text-sm" />
+              <IoClose className="text-xs sm:text-sm" />
             </button>
           ) : (
-            <span className="hidden lg:inline-block shrink-0 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/35">
+            <span className="hidden lg:inline-flex items-center shrink-0 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-semibold text-white/40 shadow-inner">
               Ctrl K
             </span>
           )}
@@ -140,9 +157,9 @@ const Topbar = () => {
               title="View Account & Profile"
             >
               <img
-                src={avatarFor(user?.name || "User", "eab34a&color=000")}
+                src={user?.avatar || avatarFor(user?.name || "User")}
                 alt=""
-                className="h-6 w-6 rounded-full object-cover"
+                className="h-6 w-6 rounded-full object-cover ring-1 ring-amber-400/40"
               />
               <span className="max-w-[100px] truncate text-xs font-bold text-white/90">{user?.name}</span>
             </button>
@@ -177,12 +194,12 @@ const Topbar = () => {
       </div>
 
       {/* Mobile: overflow menu */}
-      <div className="flex shrink-0 items-center gap-2 md:hidden">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 md:hidden">
         {!isAuthenticated && (
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-bold text-black shadow-sm"
+            className="rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-bold text-black shadow-sm"
           >
             Log in
           </button>
@@ -192,9 +209,9 @@ const Topbar = () => {
           aria-label="Menu"
           aria-expanded={mobileMenuOpen}
           onClick={() => setMobileMenuOpen((v) => !v)}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/70"
+          className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-white/10 text-white/70 hover:border-white/20 hover:text-white"
         >
-          <IoMenuOutline className="text-lg" />
+          <IoMenuOutline className="text-base sm:text-lg" />
         </button>
 
         {mobileMenuOpen && (

@@ -65,9 +65,10 @@ export const LibraryProvider = ({ children }) => {
               year: y,
               name: `${y}`,
               title: `${y}`,
-              description: `Music released in ${y}`,
+              description: `Top 7 Hits of ${y}`,
               owner: "Sangeet",
               isYearly: true,
+              songCount: 7,
             });
           }
           setYearlyPlaylists(fallbackYears);

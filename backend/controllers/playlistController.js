@@ -227,17 +227,31 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
       const sortedYears = Array.from(yearBuckets.keys()).sort((a, b) => b - a);
 
       result = sortedYears.map((year) => {
-        const yearSongs = yearBuckets.get(year);
-        const songCount = yearSongs.length;
-        const totalDuration = yearSongs.reduce((acc, s) => acc + (s.duration || 210), 0);
+        const allYearSongs = yearBuckets.get(year);
+        const playableSongs = allYearSongs.filter((s) => s.audio_url);
+        const top7Songs = (playableSongs.length > 0 ? playableSongs : allYearSongs).slice(0, 7);
+        const songCount = top7Songs.length;
+        
+        // Calculate total duration for these 7 songs (~20-25 min instead of 68 hours)
+        const totalDuration = top7Songs.reduce((acc, s) => acc + (s.duration || 210), 0);
 
+        // Collect 4 unique thumbnails for collage
         const collage = [];
         const seenThumb = new Set();
-        for (const s of yearSongs) {
+        for (const s of top7Songs) {
           if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
             seenThumb.add(s.thumbnail_url);
             collage.push(s.thumbnail_url);
             if (collage.length === 4) break;
+          }
+        }
+        if (collage.length < 4) {
+          for (const s of allYearSongs) {
+            if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
+              seenThumb.add(s.thumbnail_url);
+              collage.push(s.thumbnail_url);
+              if (collage.length === 4) break;
+            }
           }
         }
 
@@ -246,13 +260,14 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
           year,
           name: `${year}`,
           title: `${year}`,
-          description: `Music released in ${year}`,
+          description: `Top 7 Hits of ${year}`,
           owner: "Sangeet",
           isYearly: true,
           songCount,
           totalDuration,
           collage,
           coverImage: collage[0] || "",
+          songs: top7Songs,
           createdAt: `${year}-01-01T00:00:00.000Z`,
         };
       });
@@ -270,7 +285,7 @@ export const getYearlyPlaylistsOverview = async (req, res) => {
 
 /**
  * GET /api/playlists/year/:year
- * Returns full smart playlist for a specific year.
+ * Returns full smart playlist for a specific year (Top 7 songs).
  */
 export const getYearlyPlaylistByYear = async (req, res) => {
   try {
@@ -303,14 +318,27 @@ export const getYearlyPlaylistByYear = async (req, res) => {
     }
 
     const deduped = dedupeSongs(yearSongs);
-    const totalDuration = deduped.reduce((acc, s) => acc + (s.duration || 210), 0);
+    const playableSongs = deduped.filter((s) => s.audio_url);
+    const top7Songs = (playableSongs.length > 0 ? playableSongs : deduped).slice(0, 7);
+
+    // Compute duration and collage for the 7 curated songs
+    const totalDuration = top7Songs.reduce((acc, s) => acc + (s.duration || 210), 0);
     const collage = [];
     const seenThumb = new Set();
-    for (const s of deduped) {
+    for (const s of top7Songs) {
       if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
         seenThumb.add(s.thumbnail_url);
         collage.push(s.thumbnail_url);
         if (collage.length === 4) break;
+      }
+    }
+    if (collage.length < 4) {
+      for (const s of deduped) {
+        if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
+          seenThumb.add(s.thumbnail_url);
+          collage.push(s.thumbnail_url);
+          if (collage.length === 4) break;
+        }
       }
     }
 
@@ -320,14 +348,14 @@ export const getYearlyPlaylistByYear = async (req, res) => {
       year: targetYear,
       name: `${targetYear}`,
       title: `${targetYear}`,
-      description: `The best songs and releases from ${targetYear}. Automatically updated with all ${targetYear} tracks.`,
+      description: `The top 7 essential hits from ${targetYear}.`,
       owner: "Sangeet",
       isYearly: true,
-      songCount: deduped.length,
+      songCount: top7Songs.length,
       totalDuration,
       collage,
       coverImage: collage[0] || "",
-      songs: deduped,
+      songs: top7Songs,
       createdAt: `${targetYear}-01-01T00:00:00.000Z`,
     };
 
@@ -353,21 +381,21 @@ export const getCuratedPlaylist = async (typeOrLang) => {
 
   if (rawKey === "fresh" || rawKey === "new-releases") {
     name = "Fresh on Sangeet";
-    description = "The freshest drops and newly released songs, handpicked for you.";
+    description = "The top 20 freshest drops and newly released songs, handpicked for you.";
     sortQuery = { year: -1, _id: -1 };
   } else if (rawKey === "trending" || rawKey === "trending-in-india") {
     name = "Trending in India";
-    description = "The hottest, most played tracks setting the charts on fire across India right now.";
+    description = "The top 20 hottest tracks setting the charts on fire across India right now.";
     sortQuery = { _id: -1 };
   } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
     name = "Instagram Viral Song Spotlight";
-    description = "The most viral and trending sounds dominating social feeds and reels.";
+    description = "The top 20 viral sounds dominating social feeds and reels.";
     matchQuery.language = { $regex: /instagram|viral/i };
   } else {
     // Language spotlight
     const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
     name = `${capLang} Spotlight`;
-    description = `The best and latest ${capLang} songs and chart-toppers curated by Sangeet.`;
+    description = `The top 20 essential ${capLang} chart-toppers curated by Sangeet.`;
     matchQuery.language = new RegExp(`^${rawKey}$`, "i");
   }
 
@@ -404,11 +432,17 @@ export const getCuratedPlaylist = async (typeOrLang) => {
     }
   }
 
-  const deduped = dedupeSongs(songs);
+  const deduped = dedupeSongs(songs).slice(0, 20);
   const totalDuration = deduped.reduce((acc, s) => acc + (s.duration || 210), 0);
   const collage = [];
   const seenThumb = new Set();
   for (const s of deduped) {
+    if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
+      seenThumb.add(s.thumbnail_url);
+      collage.push(s.thumbnail_url);
+      if (collage.length === 4) break;
+    }
+  }
     if (s.thumbnail_url && !seenThumb.has(s.thumbnail_url)) {
       seenThumb.add(s.thumbnail_url);
       collage.push(s.thumbnail_url);

@@ -31,7 +31,7 @@
   --color-accent-teal: #4fd1c5;
   --color-accent-rose: #e8748a;
 
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
@@ -50,9 +50,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at top center, rgba(234, 179, 74, 0.09), transparent 28%),
-    radial-gradient(ellipse at bottom left, rgba(79, 209, 197, 0.04), transparent 30%),
-    linear-gradient(180deg, #050505 0%, #080809 100%);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245, 158, 11, 0.10), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 10% 90%, rgba(217, 119, 6, 0.05), transparent 60%),
+    radial-gradient(ellipse 50% 30% at 90% 40%, rgba(245, 158, 11, 0.04), transparent 50%),
+    linear-gradient(180deg, #070709 0%, #0a0a0d 50%, #050507 100%);
   color: var(--color-ink-100);
 }
 
@@ -177,6 +178,45 @@ select:focus-visible {
   transform: translateZ(0);
 }
 
+/* ===================== VINYL RECORD ARTWORK ===================== */
+.vinyl-disc {
+  position: relative;
+  background: radial-gradient(circle at center, #262629 0%, #151517 55%, #0a0a0c 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.vinyl-grooves {
+  background-image: repeating-radial-gradient(
+    circle at center,
+    transparent 0px,
+    transparent 3px,
+    rgba(255, 255, 255, 0.03) 3.5px,
+    transparent 4.5px
+  );
+}
+
+.vinyl-sheen {
+  background: conic-gradient(
+    from 45deg at 50% 50%,
+    rgba(255, 255, 255, 0.06) 0deg,
+    transparent 55deg,
+    rgba(255, 255, 255, 0.08) 120deg,
+    transparent 185deg,
+    rgba(255, 255, 255, 0.06) 240deg,
+    transparent 305deg,
+    rgba(255, 255, 255, 0.08) 360deg
+  );
+}
+
+/* Spin animation for vinyl playing */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
 /* ===================== RANGE INPUT (Progress / Volume) ===================== */
 input[type="range"] {
   -webkit-appearance: none;
@@ -186,37 +226,48 @@ input[type="range"] {
 }
 input[type="range"]::-webkit-slider-track {
   height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #eab34a;
-  margin-top: -5px;
-  box-shadow: 0 0 8px rgba(234, 179, 74, 0.5);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background: #fbbf24;
+  margin-top: -4px;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+  opacity: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
 }
+.group:hover input[type="range"]::-webkit-slider-thumb,
 input[type="range"]:hover::-webkit-slider-thumb,
 input[type="range"]:active::-webkit-slider-thumb {
-  transform: scale(1.25);
-  box-shadow: 0 0 14px rgba(234, 179, 74, 0.7);
+  opacity: 1;
+  transform: scale(1.2);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.85);
 }
 input[type="range"]::-moz-range-track {
   height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
 }
 input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #eab34a;
+  background: #fbbf24;
   border: none;
-  box-shadow: 0 0 8px rgba(234, 179, 74, 0.5);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+  opacity: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.group:hover input[type="range"]::-moz-range-thumb,
+input[type="range"]:hover::-moz-range-thumb,
+input[type="range"]:active::-moz-range-thumb {
+  opacity: 1;
+  transform: scale(1.2);
 }
 
 /* ===================== ANIMATIONS ===================== */
@@ -269,7 +320,7 @@ input[type="range"]::-moz-range-thumb {
 /* Playlist hero entrance — staggered */
 @keyframes playlist-hero-enter {
   from { opacity: 0; transform: translateY(20px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 1; transform: none; }
 }
 .animate-playlist-hero { animation: playlist-hero-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-playlist-hero-delay-1 { animation: playlist-hero-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
@@ -371,10 +422,10 @@ select option {
 .bottom-sheet-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .bottom-sheet-panel {
@@ -382,13 +433,14 @@ select option {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 51;
-  background: #18181a;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px 20px 0 0;
-  padding: 0 1rem 2rem;
-  max-height: 80vh;
+  z-index: 121;
+  background: #141416;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  border-radius: 24px 24px 0 0;
+  padding: 0 1.25rem 2.5rem;
+  max-height: 85vh;
   overflow-y: auto;
+  box-shadow: 0 -20px 50px rgba(0,0,0,0.85);
 }
 
 .bottom-sheet-handle {

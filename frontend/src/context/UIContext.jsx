@@ -11,6 +11,25 @@ export const UIProvider = ({ children }) => {
   // the default sign-up prompt when triggered from the topbar.
   const [authPrompt, setAuthPrompt] = useState({ open: false, action: "default" });
 
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sangeet_sidebar_open");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sangeet_sidebar_open", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
@@ -34,8 +53,18 @@ export const UIProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(
-    () => ({ toasts, toast, dismissToast, authPrompt, openAuthPrompt, closeAuthPrompt }),
-    [toasts, toast, dismissToast, authPrompt, openAuthPrompt, closeAuthPrompt]
+    () => ({
+      toasts,
+      toast,
+      dismissToast,
+      authPrompt,
+      openAuthPrompt,
+      closeAuthPrompt,
+      sidebarOpen,
+      setSidebarOpen,
+      toggleSidebar,
+    }),
+    [toasts, toast, dismissToast, authPrompt, openAuthPrompt, closeAuthPrompt, sidebarOpen, toggleSidebar]
   );
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;

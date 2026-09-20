@@ -8,7 +8,6 @@ import {
   IoTrashOutline,
   IoPencilOutline,
   IoShareSocialOutline,
-  IoSparkles,
   IoTimeOutline,
   IoArrowUp,
   IoArrowDown,
@@ -27,6 +26,7 @@ import { useUI } from "../context/UIContext";
 import playlistService from "../services/playlistService";
 import songService from "../services/songService";
 import { songId, normalizeSong, formatTime } from "../lib/media";
+import MediaOptionsMenu from "../components/ui/MediaOptionsMenu";
 
 /** Format total seconds into human readable duration string */
 function formatTotalDuration(seconds = 0) {
@@ -122,9 +122,10 @@ const Playlist = () => {
         if (res && Array.isArray(res.songs)) {
           setRemotePlaylist(res);
         } else {
-          // Client-side fallback: synthesize yearly playlist from catalog
+          // Client-side fallback: synthesize top 7 yearly playlist from catalog
           const allSongs = await songService.getAll();
-          const yearSongs = (allSongs || []).filter((s) => detectSongYear(s) === year);
+          const allYearSongs = (allSongs || []).filter((s) => detectSongYear(s) === year);
+          const yearSongs = allYearSongs.slice(0, 7);
           if (yearSongs.length > 0) {
             setRemotePlaylist({
               id: `year-${year}`,
@@ -132,7 +133,7 @@ const Playlist = () => {
               year,
               name: `${year}`,
               title: `${year}`,
-              description: `The best songs and releases from ${year}.`,
+              description: `The top 7 essential hits from ${year}.`,
               owner: "Sangeet",
               isYearly: true,
               songCount: yearSongs.length,
@@ -164,29 +165,31 @@ const Playlist = () => {
 
             if (rawKey === "fresh" || rawKey === "new-releases") {
               name = "Fresh on Sangeet";
-              description = "The freshest drops and newly released songs, handpicked for you.";
-              curatedSongs = (allSongs || []).slice(0, 100);
+              description = "The top 20 freshest drops and newly released songs, handpicked for you.";
+              curatedSongs = (allSongs || []).slice(0, 20);
             } else if (rawKey === "trending" || rawKey === "trending-in-india") {
               name = "Trending in India";
-              description = "The hottest, most played tracks setting the charts on fire across India right now.";
-              curatedSongs = [...(allSongs || [])].reverse().slice(0, 100);
+              description = "The top 20 hottest tracks setting the charts on fire across India right now.";
+              curatedSongs = [...(allSongs || [])].reverse().slice(0, 20);
             } else if (rawKey === "instagram-viral-song" || rawKey === "viral") {
               name = "Instagram Viral Song Spotlight";
-              description = "The most viral and trending sounds dominating social feeds and reels.";
+              description = "The top 20 viral sounds dominating social feeds and reels.";
               curatedSongs = (allSongs || []).filter(
                 (s) =>
                   (s.language || "").toLowerCase().includes("instagram") ||
                   (s.language || "").toLowerCase().includes("viral")
               );
-              if (curatedSongs.length === 0) curatedSongs = (allSongs || []).slice(0, 50);
+              if (curatedSongs.length === 0) curatedSongs = allSongs || [];
+              curatedSongs = curatedSongs.slice(0, 20);
             } else {
               const capLang = rawKey ? rawKey.charAt(0).toUpperCase() + rawKey.slice(1) : "Popular";
               name = `${capLang} Spotlight`;
-              description = `The best and latest ${capLang} songs and chart-toppers curated by Sangeet.`;
+              description = `The top 20 essential ${capLang} chart-toppers curated by Sangeet.`;
               curatedSongs = (allSongs || []).filter(
                 (s) => (s.language || "").trim().toLowerCase() === rawKey
               );
-              if (curatedSongs.length === 0) curatedSongs = (allSongs || []).slice(0, 50);
+              if (curatedSongs.length === 0) curatedSongs = allSongs || [];
+              curatedSongs = curatedSongs.slice(0, 20);
             }
 
             if (curatedSongs.length > 0) {
@@ -336,7 +339,11 @@ const Playlist = () => {
     return thumbs.length >= 4 ? thumbs : null;
   }, [playlist, allSongs]);
 
-  const coverImage = playlist?.coverImage || (!collage && allSongs[0]?.thumbnail_url);
+  const coverImage =
+    playlist?.coverImage ||
+    allSongs[0]?.thumbnail_url ||
+    (collage && collage[0]) ||
+    "";
 
   // Check if current playlist is currently playing
   const isPlaylistActive = useMemo(() => {
@@ -500,7 +507,13 @@ const Playlist = () => {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end md:gap-8">
           {/* Artwork / 4-Quadrant Collage */}
           <div className="relative aspect-square w-36 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-[#161618] shadow-2xl sm:w-48 md:w-56 group">
-            {collage ? (
+            {coverImage ? (
+              <img
+                src={coverImage}
+                alt={playlist.name}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : collage ? (
               <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-0.5">
                 {collage.slice(0, 4).map((url, i) => (
                   <img
@@ -511,12 +524,6 @@ const Playlist = () => {
                   />
                 ))}
               </div>
-            ) : coverImage ? (
-              <img
-                src={coverImage}
-                alt={playlist.name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-500/20 via-[#18181a] to-[#0d0d0e] text-center p-4">
                 {isYearly ? (
@@ -538,24 +545,8 @@ const Playlist = () => {
           {/* Playlist Metadata & Details */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
-                  isSystemPlaylist
-                    ? "border border-amber-400/30 bg-amber-400/10 text-amber-300"
-                    : "border border-white/15 bg-white/5 text-white/75"
-                }`}
-              >
-                {isYearly ? (
-                  <>
-                    <IoSparkles className="text-xs text-amber-300" /> Smart Yearly Playlist
-                  </>
-                ) : isCurated ? (
-                  <>
-                    <IoSparkles className="text-xs text-amber-300" /> Curated Collection
-                  </>
-                ) : (
-                  "Playlist"
-                )}
+              <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white/75">
+                {isYearly ? "Yearly Playlist" : isCurated ? "Curated Collection" : "Playlist"}
               </span>
             </div>
 
@@ -602,7 +593,7 @@ const Playlist = () => {
           <span>
             {isYearly
               ? "Songs are automatically aggregated by release year across the entire Sangeet catalog."
-              : "Official Sangeet curated collection. Enjoy full in-playlist search, dynamic filters, and continuous playback."}
+              : "Official Sangeet curated collection. Top 20 essential hits with continuous Autoplay playback."}
           </span>
         </div>
       )}
@@ -745,13 +736,13 @@ const Playlist = () => {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#101011] shadow-xl">
           {/* Table Header — Desktop */}
-          <div className="hidden grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_3rem] items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-xs font-semibold uppercase tracking-wider text-white/40 md:grid bg-white/[0.01]">
-            <span className="text-center">#</span>
+          <div className="hidden grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-xs font-semibold uppercase tracking-wider text-white/40 md:grid bg-white/[0.01]">
+            <span className="text-center" />
             <span>Title</span>
             <span>Artist</span>
             <span>Language</span>
             <span className="text-right">Time</span>
-            <span className="text-center">Like</span>
+            <span className="text-right pr-2">Actions</span>
           </div>
 
           {/* Song Rows */}
@@ -831,6 +822,7 @@ const PlaylistTrackRow = ({
 }) => {
   const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
+  const [menuOpen, setMenuOpen] = useState(false);
   const isActive = currentSong && songId(currentSong) === songId(song);
   const liked = isLiked(song);
 
@@ -845,7 +837,9 @@ const PlaylistTrackRow = ({
 
   return (
     <div
-      className={`group flex items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-white/[0.04] md:grid md:grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_3rem] md:px-4 ${
+      className={`group relative flex items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-white/[0.04] md:grid md:grid-cols-[3rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_4rem_auto] md:px-4 ${
+        menuOpen ? "z-30" : "z-1"
+      } ${
         isActive ? "bg-amber-400/[0.06] animate-pulse-glow" : ""
       }`}
     >
@@ -949,7 +943,7 @@ const PlaylistTrackRow = ({
         {formatTime(song.duration || 210)}
       </div>
 
-      {/* Actions: Like + User Playlist Reorder/Remove */}
+      {/* Actions: Like + More Options Menu + User Playlist Reorder/Remove */}
       <div className="flex items-center justify-end gap-1 shrink-0">
         <button
           type="button"
@@ -964,6 +958,34 @@ const PlaylistTrackRow = ({
         >
           {liked ? <IoMdHeart /> : <IoMdHeartEmpty />}
         </button>
+
+        {/* More options menu */}
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="More options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white/40 transition hover:text-white"
+          >
+            <IoEllipsisHorizontal />
+          </button>
+
+          <MediaOptionsMenu
+            isOpen={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            song={song}
+            queue={queue}
+            index={index}
+            align="right"
+            position="bottom"
+            itemType="song"
+          />
+        </div>
 
         {isUserPlaylist && (
           <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">

@@ -12,7 +12,7 @@ import { usePlayer } from "../../context/PlayerContext";
 import { normalizeSong, songId, formatTime } from "../../lib/media";
 import { EmptyState } from "../ui/StatePanels";
 
-// Queue panel — used both as an overlay drawer and inline in NowPlaying on desktop.
+// Queue panel — optimized with progressive windowing for lightning-fast rendering
 const Queue = ({ compact = false }) => {
   const {
     isQueueOpen,
@@ -28,10 +28,14 @@ const Queue = ({ compact = false }) => {
 
   // Track which row has reorder expanded (for mobile tap)
   const [expandedIndex, setExpandedIndex] = useState(null);
+  // Windowing: only render first 40 items initially so thousands of items don't freeze the DOM
+  const [displayLimit, setDisplayLimit] = useState(40);
 
   if (!compact && !isQueueOpen) return null;
 
   const upcoming = songList.slice(currentIndex + 1);
+  const visibleUpcoming = upcoming.slice(0, displayLimit);
+  const remainingCount = Math.max(0, upcoming.length - displayLimit);
 
   const moveUp = (realIndex) => {
     if (realIndex <= currentIndex + 1) return;
@@ -60,6 +64,7 @@ const Queue = ({ compact = false }) => {
             <img
               src={currentSong.thumbnail_url}
               alt=""
+              loading="lazy"
               className="h-10 w-10 shrink-0 rounded-lg object-cover"
             />
             <div className="min-w-0 flex-1">
@@ -88,12 +93,12 @@ const Queue = ({ compact = false }) => {
         )}
       </div>
 
-      {/* Song list */}
+      {/* Song list — rendered with high performance windowing */}
       {upcoming.length === 0 ? (
         <EmptyState title="Queue is empty" description="Songs you add or play next will appear here." />
       ) : (
         <div className="space-y-0.5">
-          {upcoming.map((rawSong, i) => {
+          {visibleUpcoming.map((rawSong, i) => {
             const song = normalizeSong(rawSong);
             const realIndex = currentIndex + 1 + i;
             const canMoveUp = i > 0;
@@ -112,16 +117,28 @@ const Queue = ({ compact = false }) => {
                     onClick={() => playAt(realIndex)}
                     className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                   >
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg">
-                      <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-white/5">
+                      <img
+                        src={song.thumbnail_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
                       <div className="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                         <IoPlay className="translate-x-[1px] text-xs text-white" />
                       </div>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium leading-tight text-white group-hover:text-amber-200">
-                        {song.title}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-[13px] font-medium leading-tight text-white group-hover:text-amber-200">
+                          {song.title}
+                        </p>
+                        {song.isAutoplay && (
+                          <span className="shrink-0 rounded bg-amber-400/15 border border-amber-400/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-amber-300">
+                            Autoplay
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-0.5 truncate text-[11px] leading-tight text-white/40">
                         {song.artist}
                       </p>
@@ -225,6 +242,19 @@ const Queue = ({ compact = false }) => {
               </div>
             );
           })}
+
+          {/* Show More button if there are many tracks */}
+          {remainingCount > 0 && (
+            <div className="pt-2 pb-1 text-center">
+              <button
+                type="button"
+                onClick={() => setDisplayLimit((prev) => prev + 50)}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-white/70 transition hover:border-amber-400/30 hover:bg-white/10 hover:text-amber-300 active:scale-95"
+              >
+                Load More ({remainingCount} more)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
