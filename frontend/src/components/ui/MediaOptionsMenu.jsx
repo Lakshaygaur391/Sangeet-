@@ -6,6 +6,7 @@ import {
   IoClose,
   IoLinkOutline,
   IoLogoInstagram,
+  IoLogoFacebook,
   IoLogoSnapchat,
   IoLogoWhatsapp,
 } from "react-icons/io5";
@@ -227,6 +228,13 @@ const MediaOptionsMenu = ({
     onClose();
   };
 
+  const handleFacebookShare = (e) => {
+    e.stopPropagation();
+    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    window.open(fbUrl, "_blank", "noopener,noreferrer");
+    onClose();
+  };
+
   const handleSnapchatShare = (e) => {
     e.stopPropagation();
     const snapUrl = `https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareUrl)}`;
@@ -391,6 +399,17 @@ const MediaOptionsMenu = ({
 
             <button
               type="button"
+              onClick={handleFacebookShare}
+              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#eff6ff] active:text-[#1877F2] rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <IoLogoFacebook className="text-lg text-[#1877F2]" />
+                <span>Facebook</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
               onClick={handleSnapchatShare}
               className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#fefce8] active:text-[#a16207] rounded-xl transition-colors"
             >
@@ -545,6 +564,18 @@ const MediaOptionsMenu = ({
               <div className="flex items-center gap-2.5">
                 <IoLogoInstagram className="text-base text-[#E1306C]" />
                 <span>Instagram</span>
+              </div>
+            </button>
+
+            {/* Facebook */}
+            <button
+              type="button"
+              onClick={handleFacebookShare}
+              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#eff6ff] hover:text-[#1877F2]"
+            >
+              <div className="flex items-center gap-2.5">
+                <IoLogoFacebook className="text-base text-[#1877F2]" />
+                <span>Facebook</span>
               </div>
             </button>
 
