@@ -360,16 +360,16 @@ const Home = () => {
         </div>
 
         {/* Home Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-none">
           {HOME_FILTER_TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setActiveTab(t.key)}
-              className={`rounded-full px-3.5 sm:px-4 py-1.5 text-xs font-bold transition-all duration-200 shrink-0 ${
+              className={`rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 shrink-0 active:scale-95 ${
                 activeTab === t.key
-                  ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 scale-105"
-                  : "border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white"
+                  ? "bg-amber-400 text-black shadow-md shadow-amber-400/25 font-black"
+                  : "border border-white/10 bg-white/[0.04] text-white/65 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
               }`}
             >
               {t.label}
@@ -450,16 +450,7 @@ const Home = () => {
 
           <div className="relative flex flex-col md:flex-row md:items-center justify-between p-6 sm:p-8 lg:p-10 gap-6">
             <div className="max-w-xl z-10">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white/90 shadow-sm backdrop-blur-md">
-                  {featured.language || "Featured"} Spotlight
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-semibold text-white/60">
-                  Trending Now
-                </span>
-              </div>
-
-              <h2 className="text-display mt-3 font-black text-white leading-tight drop-shadow-md line-clamp-2" title={featured.title}>
+              <h2 className="text-display font-black text-white leading-tight drop-shadow-md line-clamp-2" title={featured.title}>
                 {featured.title}
               </h2>
               <p className="text-body mt-2 text-white/70 font-medium line-clamp-1">{featured.artist}</p>
@@ -488,16 +479,16 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Right floating artwork card on desktop */}
-            <div className="relative shrink-0 hidden md:block group-hover:scale-105 transition-transform duration-500">
-              <div className="relative h-56 w-56 lg:h-64 lg:w-64 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shadow-black/80">
+            {/* Floating artwork card on mobile & desktop */}
+            <div className="relative shrink-0 order-first md:order-last group-hover:scale-105 transition-transform duration-500 self-center md:self-auto">
+              <div className="relative h-44 w-44 sm:h-52 sm:w-52 md:h-56 md:w-56 lg:h-64 lg:w-64 rounded-2xl overflow-hidden border border-white/20 shadow-2xl shadow-black/80">
                 <img
                   src={featured.thumbnail_url}
                   alt={featured.title}
                   className="h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <span className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-2.5 py-1 text-[11px] font-bold text-amber-300 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+                <span className="absolute bottom-2.5 left-2.5 sm:bottom-3 sm:left-3 rounded-lg bg-black/60 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-amber-300 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
                   <span className="eq-bars"><span/><span/><span/></span> Sangeet Pick
                 </span>
               </div>
@@ -556,34 +547,34 @@ const Home = () => {
       {/* ── Section: Interactive Regional Music Hub (ORGANIZED & SLEEK) ── */}
       {(activeTab === "all" || activeTab === "regional") && regions.length > 0 && selectedRegionData && (
         <div className="space-y-4 rounded-3xl border border-white/[0.08] bg-[#0d0d0f]/80 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-meta font-extrabold text-amber-400 uppercase tracking-wider">Curated Collections</span>
-              </div>
-              <h2 className="text-h2 font-black text-white mt-1">Regional Spotlight</h2>
-              <p className="text-caption text-white/50 mt-0.5">{selectedRegionData.subtitle}</p>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-meta mb-0.5 text-amber-400/90 uppercase tracking-wider">Curated Collections</p>
+              <h2 className="text-h2 font-black text-white truncate">Regional Spotlight</h2>
+              <p className="hidden sm:block text-xs text-white/45 mt-0.5 font-normal truncate">
+                {selectedRegionData.subtitle}
+              </p>
             </div>
 
             <Link
               to={`/playlist/spotlight-${selectedRegionData.slug}`}
-              className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition"
+              className="text-caption font-bold text-amber-300 hover:text-amber-200 flex items-center gap-0.5 shrink-0 transition-all hover:translate-x-0.5 mb-0.5"
             >
               <span>Explore {selectedRegionData.label}</span>
-              <IoChevronForward />
+              <IoChevronForward className="text-xs" />
             </Link>
           </div>
 
           {/* Regional Selector Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-none">
             {regions.map((r) => (
               <button
                 key={r.lang}
                 type="button"
                 onClick={() => setActiveRegion(r.lang)}
-                className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-bold transition-all duration-200 ${
+                className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 ${
                   activeRegion === r.lang
-                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-md shadow-amber-500/25 scale-105"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-md shadow-amber-500/25 font-black"
                     : "border border-white/10 bg-white/[0.04] text-white/70 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >

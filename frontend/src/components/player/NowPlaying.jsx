@@ -11,6 +11,7 @@ import {
   IoAddOutline,
   IoVolumeHigh,
   IoVolumeMute,
+  IoShareSocialOutline,
 } from "react-icons/io5";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { usePlayer, usePlaybackProgress } from "../../context/PlayerContext";
@@ -18,6 +19,7 @@ import { useLibrary } from "../../context/LibraryContext";
 import { useUI } from "../../context/UIContext";
 import { formatTime, normalizeSong, songId } from "../../lib/media";
 import QueuePanel from "./Queue";
+import MediaOptionsMenu from "../ui/MediaOptionsMenu";
 
 // Isolated high-frequency seekbar so parent NowPlaying component never re-renders on playback ticks
 const NowPlayingSeekBar = memo(() => {
@@ -75,6 +77,12 @@ const NowPlaying = () => {
   const { toast } = useUI();
   const [activeTab, setActiveTab] = useState("queue"); // 'queue' | 'related'
   const [prevVolume, setPrevVolume] = useState(100);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+
+  // Close share menu when song or overlay changes
+  useEffect(() => {
+    setIsShareOpen(false);
+  }, [currentSong, isNowPlayingOpen]);
 
   // Global keyboard shortcuts for Now Playing overlay
   useEffect(() => {
@@ -85,6 +93,10 @@ const NowPlaying = () => {
       if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
 
       if (e.key === "Escape") {
+        if (isShareOpen) {
+          setIsShareOpen(false);
+          return;
+        }
         setIsNowPlayingOpen(false);
       } else if (e.key === " " || e.code === "Space") {
         e.preventDefault();
@@ -104,7 +116,7 @@ const NowPlaying = () => {
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = "";
     };
-  }, [isNowPlayingOpen, setIsNowPlayingOpen, togglePlay, currentTime, duration, seekTo]);
+  }, [isNowPlayingOpen, setIsNowPlayingOpen, isShareOpen, togglePlay, currentTime, duration, seekTo]);
 
   // Ultra-fast "you might also like" scanner with early exit (never iterates 3000+ items repeatedly)
   const related = useMemo(() => {
@@ -235,6 +247,7 @@ const NowPlaying = () => {
             }}
           />
         </div>
+        <div className="w-10 md:hidden pointer-events-none" aria-hidden="true" />
       </header>
 
       {/* ── Main Viewport Content: Left Player, Right Queue & Mix ── */}
@@ -290,16 +303,47 @@ const NowPlaying = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              aria-label={isLiked(currentSong) ? "Unlike song" : "Like song"}
-              onClick={() => toggleLike(currentSong)}
-              className={`shrink-0 rounded-full p-2 text-2xl transition-all duration-200 hover:scale-110 active:scale-90 ${
-                isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-amber-300"
-              }`}
-            >
-              {isLiked(currentSong) ? <IoMdHeart /> : <IoMdHeartEmpty />}
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Like Button */}
+              <button
+                type="button"
+                aria-label={isLiked(currentSong) ? "Unlike song" : "Like song"}
+                onClick={() => toggleLike(currentSong)}
+                className={`rounded-full p-2 text-2xl transition-all duration-200 hover:scale-110 active:scale-90 ${
+                  isLiked(currentSong) ? "text-amber-400" : "text-white/40 hover:text-amber-300"
+                }`}
+              >
+                {isLiked(currentSong) ? <IoMdHeart /> : <IoMdHeartEmpty />}
+              </button>
+
+              {/* Share Button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Share song"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsShareOpen((v) => !v);
+                  }}
+                  className={`rounded-full p-2 text-2xl transition-all duration-200 hover:scale-110 active:scale-90 ${
+                    isShareOpen ? "text-amber-300 bg-white/10" : "text-white/40 hover:text-white"
+                  }`}
+                  title="Share"
+                >
+                  <IoShareSocialOutline />
+                </button>
+
+                <MediaOptionsMenu
+                  isOpen={isShareOpen}
+                  onClose={() => setIsShareOpen(false)}
+                  song={currentSong}
+                  defaultView="share"
+                  align="right"
+                  position="top"
+                  itemType="song"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Progress / Seekbar (Isolated) */}

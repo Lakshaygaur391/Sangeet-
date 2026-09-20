@@ -115,10 +115,12 @@ const PlaylistCard = memo(({ playlist, onPlayAll }) => {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
         </div>
 
-        {/* Top-right More Options button on hover or when open */}
+        {/* Top-right More Options button — visible on mobile, hover on desktop */}
         <div
           className={`absolute top-1.5 right-1.5 z-30 transition-all duration-200 ${
-            menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            menuOpen
+              ? "opacity-100"
+              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           }`}
         >
           <div className="relative">

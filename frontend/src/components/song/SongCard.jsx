@@ -89,10 +89,12 @@ const SongCard = memo(({ song: rawSong, queue, index, onAddToPlaylist }) => {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        {/* Top-Right Quick Action Buttons (Like & More Options) on Hover */}
+        {/* Top-Right Quick Action Buttons (Like & More Options) — visible on mobile, hover on desktop */}
         <div
           className={`absolute top-2 right-2 z-30 flex items-center gap-1.5 transition-all duration-200 ${
-            liked || menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            liked || menuOpen
+              ? "opacity-100"
+              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           }`}
         >
           {/* Like Heart Button */}

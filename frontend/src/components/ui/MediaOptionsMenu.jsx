@@ -4,6 +4,10 @@ import {
   IoChevronForward,
   IoChevronBack,
   IoClose,
+  IoLinkOutline,
+  IoLogoInstagram,
+  IoLogoSnapchat,
+  IoLogoWhatsapp,
 } from "react-icons/io5";
 import { usePlayer } from "../../context/PlayerContext";
 import { useLibrary } from "../../context/LibraryContext";
@@ -27,8 +31,10 @@ const MediaOptionsMenu = ({
   align = "right", // "right" | "left"
   position = "bottom", // "bottom" | "top"
   itemType = "song", // "song" | "album" | "playlist"
+  defaultView = "main", // "main" | "share"
 }) => {
-  const [view, setView] = useState("main"); // "main" | "share"
+  const [view, setView] = useState(defaultView);
+  const [placement, setPlacement] = useState(position);
   const menuRef = useRef(null);
 
   const { playSong, addToQueue } = usePlayer();
@@ -36,12 +42,32 @@ const MediaOptionsMenu = ({
   const { isAuthenticated } = useAuth();
   const { openAuthPrompt, toast } = useUI();
 
-  // Reset to main view whenever menu opens
+  // Reset to defaultView whenever menu opens
   useEffect(() => {
     if (isOpen) {
-      setView("main");
+      setView(defaultView);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultView]);
+
+  // Viewport collision detection & auto-flip for desktop dropdown
+  useEffect(() => {
+    if (!isOpen) return;
+    setPlacement(position);
+
+    const checkOverflow = () => {
+      if (menuRef.current) {
+        const rect = menuRef.current.getBoundingClientRect();
+        if (position === "bottom" && rect.bottom > window.innerHeight - 15) {
+          setPlacement("top");
+        } else if (position === "top" && rect.top < 15) {
+          setPlacement("bottom");
+        }
+      }
+    };
+
+    const timer = setTimeout(checkOverflow, 20);
+    return () => clearTimeout(timer);
+  }, [isOpen, position, view]);
 
   // Click outside and escape key dismiss
   useEffect(() => {
@@ -180,32 +206,31 @@ const MediaOptionsMenu = ({
     onClose();
   };
 
-  const handleTwitterShare = (e) => {
+  const handleInstagramShare = (e) => {
     e.stopPropagation();
-    const text = `Listen to "${title}" on Sangeet!`;
-    window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).catch(() => {});
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = shareUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+    } catch {
+      /* ignore */
+    }
+    toast("Link copied! Opening Instagram...", "success");
+    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
     onClose();
   };
 
-  const handleFacebookShare = (e) => {
+  const handleSnapchatShare = (e) => {
     e.stopPropagation();
-    window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-    onClose();
-  };
-
-  const handleEmailShare = (e) => {
-    e.stopPropagation();
-    const subject = `Check out "${title}" on Sangeet`;
-    const body = `Hey,\n\nCheck out "${title}" by ${artist} on Sangeet:\n${shareUrl}`;
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const snapUrl = `https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareUrl)}`;
+    window.open(snapUrl, "_blank", "noopener,noreferrer");
     onClose();
   };
 
@@ -321,58 +346,69 @@ const MediaOptionsMenu = ({
           </div>
         ) : (
           <div className="flex flex-col py-1 animate-fade-in">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setView("main");
-              }}
-              className="flex w-full items-center gap-2 py-2.5 px-3 text-left text-[14px] font-bold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
-            >
-              <IoChevronBack className="text-lg text-gray-600" />
-              <span>Back</span>
-            </button>
-
-            <div className="border-b border-gray-100 my-1" />
+            {defaultView !== "share" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setView("main");
+                  }}
+                  className="flex w-full items-center gap-2 py-2.5 px-3 text-left text-[14px] font-bold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
+                >
+                  <IoChevronBack className="text-lg text-gray-600" />
+                  <span>Back</span>
+                </button>
+                <div className="border-b border-gray-100 my-1" />
+              </>
+            ) : (
+              <div className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 mb-1">
+                Share To
+              </div>
+            )}
 
             <button
               type="button"
               onClick={handleCopyLink}
               className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
             >
-              <span>Copy Link</span>
+              <div className="flex items-center gap-3">
+                <IoLinkOutline className="text-lg text-gray-500" />
+                <span>Copy Link</span>
+              </div>
             </button>
 
             <button
               type="button"
-              onClick={handleTwitterShare}
-              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
+              onClick={handleInstagramShare}
+              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#fdf2f8] active:text-[#be185d] rounded-xl transition-colors"
             >
-              <span>Twitter</span>
+              <div className="flex items-center gap-3">
+                <IoLogoInstagram className="text-lg text-[#E1306C]" />
+                <span>Instagram</span>
+              </div>
             </button>
 
             <button
               type="button"
-              onClick={handleFacebookShare}
-              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
+              onClick={handleSnapchatShare}
+              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#fefce8] active:text-[#a16207] rounded-xl transition-colors"
             >
-              <span>Facebook</span>
+              <div className="flex items-center gap-3">
+                <IoLogoSnapchat className="text-lg text-[#eab308]" />
+                <span>Snapchat</span>
+              </div>
             </button>
 
             <button
               type="button"
               onClick={handleWhatsAppShare}
-              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
+              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#ecfdf5] active:text-[#047857] rounded-xl transition-colors"
             >
-              <span>WhatsApp</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleEmailShare}
-              className="flex w-full items-center justify-between py-3 px-3 text-left text-[14px] font-semibold text-[#2d2d2d] active:bg-[#e6f7f5] active:text-[#0b655b] rounded-xl transition-colors"
-            >
-              <span>Email</span>
+              <div className="flex items-center gap-3">
+                <IoLogoWhatsapp className="text-lg text-[#25D366]" />
+                <span>WhatsApp</span>
+              </div>
             </button>
           </div>
         )}
@@ -402,9 +438,9 @@ const MediaOptionsMenu = ({
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className={`hidden sm:block animate-scale-in absolute z-50 w-52 sm:w-56 overflow-hidden rounded-2xl border border-gray-200/80 bg-white py-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.35),0_3px_10px_rgba(0,0,0,0.12)] transition-all duration-150 ${
+        className={`hidden sm:block animate-scale-in absolute z-50 w-52 sm:w-56 max-h-[min(85vh,420px)] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white py-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.35),0_3px_10px_rgba(0,0,0,0.12)] transition-all duration-150 scrollbar-none ${
           align === "right" ? "right-0" : "left-0"
-        } ${position === "top" ? "bottom-full mb-2" : "top-full mt-1.5"}`}
+        } ${placement === "top" ? "bottom-full mb-2" : "top-full mt-1.5"}`}
       >
         {view === "main" ? (
           <div className="flex flex-col py-0.5">
@@ -466,20 +502,27 @@ const MediaOptionsMenu = ({
           /* ── Share Submenu View ── */
           <div className="flex flex-col py-0.5 animate-fade-in">
             {/* Header: < Back */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setView("main");
-              }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-bold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
-            >
-              <IoChevronBack className="text-base text-gray-600" />
-              <span>Back</span>
-            </button>
-
-            {/* Thin subtle divider below Back */}
-            <div className="border-b border-gray-100 my-0.5" />
+            {defaultView !== "share" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setView("main");
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-bold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
+                >
+                  <IoChevronBack className="text-base text-gray-600" />
+                  <span>Back</span>
+                </button>
+                {/* Thin subtle divider below Back */}
+                <div className="border-b border-gray-100 my-0.5" />
+              </>
+            ) : (
+              <div className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 mb-1">
+                Share To
+              </div>
+            )}
 
             {/* Copy Link */}
             <button
@@ -487,43 +530,46 @@ const MediaOptionsMenu = ({
               onClick={handleCopyLink}
               className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
             >
-              <span>Copy Link</span>
+              <div className="flex items-center gap-2.5">
+                <IoLinkOutline className="text-base text-gray-500" />
+                <span>Copy Link</span>
+              </div>
             </button>
 
-            {/* Twitter */}
+            {/* Instagram */}
             <button
               type="button"
-              onClick={handleTwitterShare}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
+              onClick={handleInstagramShare}
+              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#fdf2f8] hover:text-[#be185d]"
             >
-              <span>Twitter</span>
+              <div className="flex items-center gap-2.5">
+                <IoLogoInstagram className="text-base text-[#E1306C]" />
+                <span>Instagram</span>
+              </div>
             </button>
 
-            {/* Facebook */}
+            {/* Snapchat */}
             <button
               type="button"
-              onClick={handleFacebookShare}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
+              onClick={handleSnapchatShare}
+              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#fefce8] hover:text-[#a16207]"
             >
-              <span>Facebook</span>
+              <div className="flex items-center gap-2.5">
+                <IoLogoSnapchat className="text-base text-[#eab308]" />
+                <span>Snapchat</span>
+              </div>
             </button>
 
             {/* WhatsApp */}
             <button
               type="button"
               onClick={handleWhatsAppShare}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
+              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#ecfdf5] hover:text-[#047857]"
             >
-              <span>WhatsApp</span>
-            </button>
-
-            {/* Email */}
-            <button
-              type="button"
-              onClick={handleEmailShare}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] font-semibold text-[#2d2d2d] transition-colors duration-150 hover:bg-[#e6f7f5] hover:text-[#0b655b]"
-            >
-              <span>Email</span>
+              <div className="flex items-center gap-2.5">
+                <IoLogoWhatsapp className="text-base text-[#25D366]" />
+                <span>WhatsApp</span>
+              </div>
             </button>
           </div>
         )}
