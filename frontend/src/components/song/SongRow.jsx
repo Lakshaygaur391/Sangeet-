@@ -11,10 +11,10 @@ import MediaOptionsMenu from "../ui/MediaOptionsMenu";
 // Compact row used in playlist tracklists, Library, Queue, Artist popular tracks.
 const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration, onMenu, onAddToPlaylist }) => {
   const song = normalizeSong(rawSong);
-  const { currentSong, isPlaying, playSong, setIsPlaying } = usePlayer();
+  const { currentSong, isPlaying, playSong, setIsPlaying, addToQueue } = usePlayer();
   const { isLiked, toggleLike } = useLibrary();
   const { isAuthenticated } = useAuth();
-  const { openAuthPrompt } = useUI();
+  const { openAuthPrompt, toast } = useUI();
   const [menuOpen, setMenuOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
   const menuRef = useRef(null);
@@ -30,6 +30,14 @@ const SongRow = memo(({ song: rawSong, queue, index, showIndex = true, duration,
       return;
     }
     playSong(song, queue, index);
+  };
+
+  const handleAddToQueue = (e) => {
+    e?.stopPropagation();
+    if (song) {
+      addToQueue(song);
+      toast?.(`Added "${song.title}" to queue`, "success");
+    }
   };
 
 
