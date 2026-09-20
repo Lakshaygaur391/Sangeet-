@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   IoPerson,
@@ -589,144 +590,155 @@ const Account = () => {
       </div>
 
       {/* ── Interactive Avatar Selector Modal ── */}
-      {isAvatarModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-amber-500/30 bg-[#131317] p-6 sm:p-8 shadow-2xl space-y-6">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <IoColorWandOutline className="text-amber-400 text-lg" />
-                  Choose Your Music Persona
-                </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Pick an avatar that reflects your musical style or generate a custom one
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAvatarModalOpen(false)}
-                className="rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white transition"
-              >
-                <IoClose className="text-xl" />
-              </button>
-            </div>
-
-            {/* Live Selected Avatar Preview */}
-            <div className="flex flex-col sm:flex-row items-center gap-5 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-[#18181f] to-[#121215] p-5 shadow-inner">
-              <div className="relative shrink-0">
-                <img
-                  src={previewAvatar}
-                  alt="Selected Preview"
-                  className="h-20 w-20 rounded-2xl border-2 border-amber-400 object-cover shadow-lg shadow-amber-400/20"
-                />
-                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-black shadow">
-                  <IoCheckmark className="text-xs font-black" />
-                </span>
-              </div>
-              <div className="text-center sm:text-left flex-1">
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Live Preview</p>
-                <p className="text-base font-black text-white mt-0.5">{user?.name || "Music Listener"}</p>
-                <p className="text-xs text-white/50 mt-1">
-                  This avatar will appear on your top navigation, mobile drawer, and player profile.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleRandomizeAvatar}
-                className="flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition active:scale-95 shrink-0"
-              >
-                <IoDiceOutline className="text-base" />
-                <span>Shuffle Seed</span>
-              </button>
-            </div>
-
-            {/* Curated Music Personas Grid */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">
-                Curated Music Personas
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {CURATED_AVATARS.map((item) => {
-                  const itemUrl = getAvatarUrl({ style: item.style, seed: item.seed, bg: item.bg });
-                  const isSelected = previewAvatar === itemUrl;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectCuratedAvatar(item)}
-                      className={`group relative flex flex-col items-center p-3 rounded-2xl border text-center transition-all duration-200 ${
-                        isSelected
-                          ? "border-amber-400 bg-amber-400/15 shadow-md shadow-amber-400/20 scale-[1.03]"
-                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      <div className="relative mb-2">
-                        <img
-                          src={itemUrl}
-                          alt={item.name}
-                          className="h-14 w-14 rounded-xl object-cover bg-neutral-900 ring-1 ring-white/10 group-hover:scale-105 transition-transform"
-                        />
-                        {isSelected && (
-                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-black shadow text-[10px] font-black">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs font-bold text-white truncate max-w-[120px]">{item.name}</p>
-                      <span className="text-[10px] text-white/50 truncate max-w-[120px] mt-0.5">
-                        {item.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Seed Input */}
-            <div className="border-t border-white/[0.08] pt-4">
-              <label className="text-xs font-bold uppercase tracking-wider text-white/60 block mb-1.5">
-                Generate from Custom Nickname / Seed
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customSeed}
-                  onChange={handleCustomSeedChange}
-                  placeholder="e.g. DJ Umang, CosmicBeat, StarSinger..."
-                  className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs text-white placeholder-white/30 focus:border-amber-400 focus:outline-none"
-                />
+      {isAvatarModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+            onClick={() => setIsAvatarModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border border-amber-500/30 bg-[#131317] shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7 sm:py-5 shrink-0 bg-[#131317]">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                    <IoColorWandOutline className="text-amber-400 text-lg" />
+                    Choose Your Music Persona
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Pick an avatar that reflects your musical style or generate a custom one
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={handleRandomizeAvatar}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white transition flex items-center gap-1.5"
+                  onClick={() => setIsAvatarModalOpen(false)}
+                  className="rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white transition active:scale-95"
                 >
-                  <IoDiceOutline className="text-base text-amber-400" />
-                  Random
+                  <IoClose className="text-xl" />
+                </button>
+              </div>
+
+              {/* Scrollable Modal Content */}
+              <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6 space-y-6">
+                {/* Live Selected Avatar Preview */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-[#18181f] to-[#121215] p-4 sm:p-5 shadow-inner">
+                  <div className="relative shrink-0">
+                    <img
+                      src={previewAvatar}
+                      alt="Selected Preview"
+                      className="h-20 w-20 rounded-2xl border-2 border-amber-400 object-cover shadow-lg shadow-amber-400/20"
+                    />
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-black shadow">
+                      <IoCheckmark className="text-xs font-black" />
+                    </span>
+                  </div>
+                  <div className="text-center sm:text-left flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Live Preview</p>
+                    <p className="text-base font-black text-white mt-0.5">{user?.name || "Music Listener"}</p>
+                    <p className="text-xs text-white/50 mt-1">
+                      This avatar will appear on your top navigation, mobile drawer, and player profile.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRandomizeAvatar}
+                    className="flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition active:scale-95 shrink-0"
+                  >
+                    <IoDiceOutline className="text-base" />
+                    <span>Shuffle Seed</span>
+                  </button>
+                </div>
+
+                {/* Curated Music Personas Grid */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">
+                    Curated Music Personas
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                    {CURATED_AVATARS.map((item) => {
+                      const itemUrl = getAvatarUrl({ style: item.style, seed: item.seed, bg: item.bg });
+                      const isSelected = previewAvatar === itemUrl;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectCuratedAvatar(item)}
+                          className={`group relative flex flex-col items-center p-3 rounded-2xl border text-center transition-all duration-200 ${
+                            isSelected
+                              ? "border-amber-400 bg-amber-400/15 shadow-md shadow-amber-400/20 scale-[1.03]"
+                              : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <div className="relative mb-2">
+                            <img
+                              src={itemUrl}
+                              alt={item.name}
+                              className="h-14 w-14 rounded-xl object-cover bg-neutral-900 ring-1 ring-white/10 group-hover:scale-105 transition-transform"
+                            />
+                            {isSelected && (
+                              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-black shadow text-[10px] font-black">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold text-white truncate max-w-[120px]">{item.name}</p>
+                          <span className="text-[10px] text-white/50 truncate max-w-[120px] mt-0.5">
+                            {item.badge}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Seed Input */}
+                <div className="border-t border-white/[0.08] pt-4 pb-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/60 block mb-2">
+                    Generate from Custom Nickname / Seed
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <input
+                      type="text"
+                      value={customSeed}
+                      onChange={handleCustomSeedChange}
+                      placeholder="e.g. DJ Umang, CosmicBeat, StarSinger..."
+                      className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-white/30 focus:border-amber-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRandomizeAvatar}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <IoDiceOutline className="text-base text-amber-400" />
+                      Random
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 border-t border-white/10 bg-[#111114] px-5 py-4 sm:px-7 sm:py-5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarModalOpen(false)}
+                  className="rounded-full px-5 py-2.5 text-xs sm:text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAvatar}
+                  className="rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-2.5 text-xs sm:text-sm font-black text-black shadow-lg shadow-amber-500/25 hover:brightness-110 active:scale-95 transition-all"
+                >
+                  Apply & Save Avatar
                 </button>
               </div>
             </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 border-t border-white/10 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsAvatarModalOpen(false)}
-                className="rounded-full px-5 py-2.5 text-xs font-bold text-white/60 hover:text-white transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAvatar}
-                className="rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/25 hover:scale-105 active:scale-95 transition-all"
-              >
-                Apply & Save Avatar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
